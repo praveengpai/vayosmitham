@@ -6,6 +6,7 @@ import { DentistQueue, DentistCase, DentistHistory } from './dentist.js';
 import { AdminArea, AuditQueue, AuditCase } from './admin.js';
 import { ReportView } from './report.js';
 import { LANGUAGES } from '/shared/clinical.js';
+import { CONSENT_VERSION, isDraft, contactGaps } from '/shared/consent.js';
 
 // ---------- boot ----------
 async function boot() {
@@ -88,7 +89,7 @@ function Frame({ children }) {
       ${u.role === 'dentist' && html`<nav class="row" style="margin-left:16px"><a href="#/" style="color:#fff">${t('Queue')}</a><a href="#/history" style="color:#fff">${t('My opinions')}</a></nav>`}
       <a class="who" href="#/me" style="color:#fff;text-decoration:none">${u.name}<br /><span class="tiny" style="color:#d8ece8">${t(roleName(u.role))}</span></a>
     </div></header>
-    ${s.ref?.settings && /pilot|demo/i.test(s.ref.settings.consent_notice_version || '') && html`<div class="demo-bar">${t('Pilot version — use test data only until the legal review is complete')}</div>`}
+    ${(isDraft(CONSENT_VERSION) || contactGaps(s.ref?.settings || {}).length > 0) && html`<div class="demo-bar">${t('Pilot version — use test data only until the legal review is complete')}</div>`}
     ${!s.online && html`<div class="offline-bar">${t('No internet. You can keep recording visits; they will be sent when you are back online.')}</div>`}
     <main>${children}</main>
     ${field && html`<nav class="bottom-nav" aria-label=${t('Main')}>
@@ -234,7 +235,7 @@ function Profile() {
     </div>
     <div class="panel"><h2>${t('Change PIN')}</h2><${ChangePin} /></div>
     <div class="panel"><button class="btn danger big" onClick=${logout}>${t('Sign out')}</button></div>
-    <p class="tiny" style="margin-top:16px">Vayosmitham · Community Innovation Foundation with the Association of Geriatric Dentistry (AGeD). ${t('Opinions are advisory screening opinions, not a diagnosis or prescription.')}</p>
+    <p class="tiny" style="margin-top:16px">Vayosmitham · Community Innovation Foundation with the Association of Geriatric Dentistry (AGeD). ${t('Opinions are advisory screening opinions, not a diagnosis or prescription.')} <a href="/privacy.html" target="_blank" rel="noopener">${t('Privacy notice')}</a></p>
   </div>`;
 }
 

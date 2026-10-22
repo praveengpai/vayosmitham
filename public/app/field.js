@@ -97,7 +97,7 @@ export function PersonView({ id }) {
 }
 
 export function consentLabel(l) {
-  return { care: 'Screening and dentist opinion', photos: 'Mouth photos', research: 'Anonymous use for research', messaging: 'SMS/WhatsApp messages', abha: 'ABHA health ID link' }[l];
+  return { care: 'Screening and dentist opinion', photos: 'Mouth photos', research: 'Coded use for approved research', messaging: 'SMS/WhatsApp messages', abha: 'ABHA health ID link' }[l];
 }
 
 function Trend({ cases }) {

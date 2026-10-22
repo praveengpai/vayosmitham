@@ -1,6 +1,7 @@
 // End-to-end API test: worker → dentist → worker → auditor → admin.
 // Usage: BASE=http://localhost:8787 PIN=482913 node scripts/api-test.mjs
 import { readFileSync } from 'node:fs';
+import { CONSENT_VERSION as CV } from '../public/shared/consent.js';
 const BASE = process.env.BASE || 'http://localhost:8787';
 const PIN = process.env.PIN || '482913';
 let failures = 0;
@@ -27,9 +28,9 @@ const visit = {
   client_uuid: crypto.randomUUID(), visit_type: 'baseline',
   person: { client_uuid: crypto.randomUUID(), name: 'Kamalakshi Amma', sex: 'F', birth_year: 1948, phone: '9876543210', address: 'Puthenveedu', state: 'Kerala', district: 'Ernakulam',
     lsgd_type: 'municipality', lsgd_name: 'Kalamassery', ward: '12' },
-  consents: [{ layer: 'care', granted: true, method: 'thumb', capacity: 'has_capacity', notice_language: 'ml' },
-    { layer: 'photos', granted: true, method: 'thumb', capacity: 'has_capacity', notice_language: 'ml' },
-    { layer: 'research', granted: true, method: 'thumb', capacity: 'has_capacity', notice_language: 'ml' }],
+  consents: [{ layer: 'care', granted: true, method: 'thumb', capacity: 'has_capacity', notice_language: 'ml', notice_version: CV, copy_offered: true },
+    { layer: 'photos', granted: true, method: 'thumb', capacity: 'has_capacity', notice_language: 'ml', notice_version: CV },
+    { layer: 'research', granted: true, method: 'thumb', capacity: 'has_capacity', notice_language: 'ml', notice_version: CV }],
   red_flags: ['ulcer_2wk'],
   screening: { complaints: ['pain', 'denture_problem'], complaint_text: 'താഴത്തെ പല്ല്സെറ്റ് ഇളകുന്നു, ഇടതുവശത്ത് മൂന്നാഴ്ചയായി ഒരു വ്രണം ഉണ്ട്', ohat: { lips: 0, tongue: 1, gums: 2, saliva: 1, teeth: 2, dentures: 2, cleanliness: 1, pain: 1 },
     gohai: [2, 2, 4, 3, 2, 4, 3, 3, 2, 3, 3, 4], natural_teeth: 6, denture_upper: 'none', denture_lower: 'partial', denture_fit: 'loose',
@@ -38,6 +39,10 @@ const visit = {
 // location override without reason must fail
 const bad = await w.call('/api/visits', { method: 'POST', json: { ...visit, client_uuid: crypto.randomUUID(), person: { ...visit.person, client_uuid: crypto.randomUUID(), ward: '3' } } });
 ok(bad.status === 400 && /why the location/i.test(bad.data.error), 'location change without a reason is refused');
+const badV = await w.call('/api/visits', { method: 'POST', json: { ...visit, client_uuid: crypto.randomUUID(), person: { ...visit.person, client_uuid: crypto.randomUUID() }, consents: [{ ...visit.consents[0], notice_version: 'made-up' }] } });
+ok(badV.status === 400 && /unknown notice version/i.test(badV.data.error), 'consent with an unknown notice version is refused');
+const noDecider = await w.call('/api/visits', { method: 'POST', json: { ...visit, client_uuid: crypto.randomUUID(), person: { ...visit.person, client_uuid: crypto.randomUUID() }, consents: [{ ...visit.consents[0], capacity: 'doubtful', method: 'caregiver_assent', assent_by: 'Son' }] } });
+ok(noDecider.status === 400 && /who is deciding/i.test(noDecider.data.error), 'assent without saying who decides is refused');
 const v = await w.call('/api/visits', { method: 'POST', json: visit });
 ok(v.status === 200 && v.data.urgency === 'urgent', 'visit submitted and marked urgent');
 const again = await w.call('/api/visits', { method: 'POST', json: visit });

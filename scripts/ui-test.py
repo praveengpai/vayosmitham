@@ -40,7 +40,10 @@ with sync_playwright() as p:
     nxt = lambda: w.locator('.wizard-foot .btn.primary').click()
     nxt(); w.wait_for_timeout(300)
     # consent
-    w.locator('label.choice.block', has_text='ഞാൻ ഈ വിവരങ്ങൾ').click()
+    w.locator('label.choice.block', has_text='പരിശോധനയും ദന്ത ഡോക്ടറുടെ').click()
+    w.locator('label.choice.block', has_text='വായയ്ക്കുള്ളിലെ ഫോട്ടോകൾ').click()
+    w.locator('label.choice.block', has_text='അവർക്ക് മനസ്സിലാകുന്ന ഭാഷയിൽ').click()
+    w.locator('label.choice.block', has_text='പകർപ്പ്').click()
     shot(w, '03-visit-consent')
     nxt(); w.wait_for_timeout(300)
     # flags: none
@@ -111,6 +114,8 @@ with sync_playwright() as p:
     login(a, '9000000001'); a.wait_for_timeout(1500)
     shot(a, '16-admin-dashboard')
     a.goto(BASE + '/#/admin/users'); a.wait_for_timeout(1000); shot(a, '17-admin-users')
+    pv = b.new_page(viewport={'width': 900, 'height': 1200}); pv.goto(BASE + '/privacy.html?lang=ml'); pv.wait_for_timeout(1500); shot(pv, '18-privacy-ml')
+    pv.goto(BASE + '/privacy.html?lang=en'); pv.wait_for_timeout(1500); shot(pv, '19-privacy-en')
     b.close()
 
 print('\n'.join(errors) if errors else 'no console errors')

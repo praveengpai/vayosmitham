@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ml">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vayosmitham privacy notice</title>
+  <meta name="theme-color" content="#0c5f56">
+  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Manjari:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --ink: #18272b; --muted: #4b5d61; --green: #0c5f56; --line: #d6e0de; --gold: #e5a21b; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f3f6f5; color: var(--ink); font: 16px/1.6 'Atkinson Hyperlegible', 'Manjari', system-ui, sans-serif; }
+    :lang(ml) { font-family: 'Manjari', 'Noto Sans Malayalam', system-ui, sans-serif; line-height: 1.75; }
+    .bar { max-width: 210mm; margin: 0 auto; padding: 16px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+    .bar a, .bar button { font: inherit; font-weight: 700; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--line); background: #fff; color: var(--ink); text-decoration: none; cursor: pointer; }
+    .bar a.on { background: var(--green); color: #fff; border-color: var(--green); }
+    .bar button.primary { background: var(--green); color: #fff; border-color: var(--green); }
+    article { background: #fff; max-width: 210mm; margin: 0 auto 32px; padding: 14mm; border: 1px solid var(--line); }
+    h1 { color: var(--green); font-size: 1.45rem; margin: 0 0 4px; border-bottom: 3px solid var(--gold); padding-bottom: 8px; }
+    h2 { font-size: 1.05rem; margin: 18px 0 4px; color: var(--green); }
+    p { margin: 0 0 6px; }
+    .ver { color: var(--muted); font-size: .85rem; }
+    .draft { background: #fdf2d8; border: 1px solid #f0d49c; padding: 8px 12px; border-radius: 6px; margin: 10px 0; font-size: .9rem; }
+    .form { margin-top: 22px; border-top: 2px solid var(--green); padding-top: 12px; }
+    .form table { width: 100%; border-collapse: collapse; }
+    .form td { border: 1px solid var(--line); padding: 8px; vertical-align: top; }
+    .box { display: inline-block; width: 16px; height: 16px; border: 1.5px solid var(--ink); margin-right: 8px; vertical-align: -2px; }
+    .sign { height: 64px; }
+    @media print { @page { size: A4; margin: 0; } body { background: #fff; } .bar { display: none; } article { border: 0; margin: 0; max-width: none; } }
+    @media (max-width: 600px) { article { padding: 16px; } }
+  </style>
+</head>
+<body>
+  <div class="bar"><span><a id="l-ml" href="?lang=ml">മലയാളം</a> <a id="l-en" href="?lang=en">English</a></span>
+    <span><label><input type="checkbox" id="withform" checked> <span id="formlbl">Include consent form</span></label> <button class="primary" onclick="print()">Print / Save PDF</button></span></div>
+  <article id="doc"><p>Loading…</p></article>
+  <script type="module">
+    import { CONSENT_VERSION, isDraft, noticeSections, LAYERS, DECIDER_TYPES } from '/shared/consent.js';
+    const lang = new URLSearchParams(location.search).get('lang') === 'en' ? 'en' : 'ml';
+    document.documentElement.lang = lang;
+    document.getElementById('l-' + lang).classList.add('on');
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    let settings = {};
+    try { settings = await fetch('/api/public/notice-settings').then(r => r.json()); } catch { /* offline: blanks shown */ }
+    const ml = lang === 'ml';
+    const T = ml ? {
+      form: 'സമ്മത രേഖ', name: 'വ്യക്തിയുടെ പേര്', id: 'വ്യക്തി ഐഡി', agree: 'ഞാൻ ഈ അറിയിപ്പ് വായിച്ചു/കേട്ടു, മനസ്സിലായി. ഞാൻ സമ്മതിക്കുന്നത്:',
+      sign: 'ഒപ്പ് / വിരലടയാളം', date: 'തീയതി', witness: 'സാക്ഷി (പേരും ഒപ്പും)', decider: 'വ്യക്തിക്ക് സ്വയം തീരുമാനിക്കാൻ കഴിയാത്തപ്പോൾ — തീരുമാനിക്കുന്നയാൾ',
+      dname: 'പേര്, ബന്ധം', worker: 'ആരോഗ്യ പ്രവർത്തക (പേരും ഒപ്പും)', copy: 'ഈ അറിയിപ്പിന്റെ ഒരു പകർപ്പ് വ്യക്തിക്ക് നൽകി / നൽകാമെന്ന് പറഞ്ഞു',
+      draft: 'കരട് — നിയമോപദേശകന്റെ അംഗീകാരം ലഭിച്ചിട്ടില്ല. യഥാർത്ഥ രോഗികളുമായി ഉപയോഗിക്കരുത്.', ver: 'പതിപ്പ്', withform: 'സമ്മത രേഖ ഉൾപ്പെടുത്തുക'
+    } : {
+      form: 'Consent record', name: 'Name of the person', id: 'Person ID', agree: 'I have read or heard this notice and understood it. I agree to:',
+      sign: 'Signature / thumb impression', date: 'Date', witness: 'Witness (name and signature)', decider: 'If the person cannot decide for themselves — person deciding',
+      dname: 'Name, relationship', worker: 'Health worker (name and signature)', copy: 'A copy of this notice was given / offered to the person',
+      draft: 'DRAFT — not yet approved by legal counsel. Do not use with real patients.', ver: 'Version', withform: 'Include consent form'
+    };
+    document.getElementById('formlbl').textContent = T.withform;
+    const render = () => {
+      const secs = noticeSections(lang, settings);
+      let h = `<h1>${esc(secs[0].h)}</h1><p class="ver">${T.ver} ${esc(CONSENT_VERSION)}</p>`;
+      if (isDraft(CONSENT_VERSION)) h += `<div class="draft">${T.draft}</div>`;
+      h += secs[0].p.map(p => `<p>${esc(p)}</p>`).join('');
+      for (const s of secs.slice(1)) h += `<h2>${esc(s.h)}</h2>` + s.p.map(p => `<p>${esc(p)}</p>`).join('');
+      if (document.getElementById('withform').checked) {
+        h += `<section class="form"><h2>${T.form}</h2><table>
+          <tr><td style="width:18%">${T.name}</td><td style="width:42%"></td><td style="width:14%">${T.id}</td><td></td></tr></table>
+          <p style="margin-top:10px">${T.agree}</p>
+          ${['care', 'photos', 'research', 'messaging'].map(l => `<p><span class="box"></span>${esc(LAYERS[l][lang][0])} <span class="ver">— ${esc(LAYERS[l][lang][1])}</span></p>`).join('')}
+          <table style="margin-top:10px"><tr><td style="width:50%">${T.sign}<div class="sign"></div></td><td>${T.date}<div class="sign"></div></td></tr>
+          <tr><td>${T.witness}<div class="sign"></div></td><td>${T.worker}<div class="sign"></div></td></tr>
+          <tr><td colspan="2">${T.decider}: ${DECIDER_TYPES.map(d => `<span class="box"></span>${esc(d[lang])}`).join(' &nbsp; ')}
+            <div>${T.dname}</div><div class="sign"></div></td></tr></table>
+          <p style="margin-top:8px"><span class="box"></span>${T.copy}</p></section>`;
+      }
+      document.getElementById('doc').innerHTML = h;
+    };
+    document.getElementById('withform').addEventListener('change', render);
+    render();
+  </script>
+</body>
+</html>

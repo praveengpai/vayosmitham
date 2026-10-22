@@ -212,7 +212,7 @@ export async function auditLog(env, req, user) {
 export async function consentLog(env, req, user) {
   requireRole(user, 'dpo', 'admin');
   const { results } = await env.IDENTITY.prepare(
-    `SELECT c.person_id, c.layer, c.granted, c.method, c.capacity, c.notice_version, c.recorded_at, c.withdrawn_at, c.withdrawn_reason
+    `SELECT c.person_id, c.layer, c.granted, c.method, c.capacity, c.decider_type, c.copy_offered, c.notice_version, c.recorded_at, c.withdrawn_at, c.withdrawn_reason
      FROM consents c ORDER BY c.recorded_at DESC LIMIT 300`).all();
   return json({ consents: results });
 }
@@ -277,9 +277,10 @@ export async function importLsgds(env, req, user) {
 export async function saveSettings(env, req, user) {
   requireRole(user, 'admin');
   const b = await body(req);
-  const allowed = ['claim_minutes', 'sla_urgent_hours', 'sla_routine_hours', 'audit_sample_percent', 'consent_notice_version', 'small_cell_threshold'];
+  const allowed = ['claim_minutes', 'sla_urgent_hours', 'sla_routine_hours', 'audit_sample_percent', 'small_cell_threshold',
+    'org_legal_name', 'org_address', 'grievance_name', 'grievance_phone', 'grievance_email', 'retention_years', 'grievance_days'];
   const stmts = [];
-  for (const k of allowed) if (b[k] != null) stmts.push(env.CLINICAL.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?,?)').bind(k, String(b[k]).slice(0, 60)));
+  for (const k of allowed) if (b[k] != null) stmts.push(env.CLINICAL.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?,?)').bind(k, String(b[k]).slice(0, 300)));
   if (stmts.length) await env.CLINICAL.batch(stmts);
   await audit(env, user, 'settings.save', null, null, b);
   return json({ ok: true });

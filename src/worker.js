@@ -23,6 +23,7 @@ const ROUTES = [
   ['POST', '/api/me/verify-pin', verifyPin],
   ['PATCH', '/api/me/prefs', savePrefs],
   ['GET', '/api/ref', reference],
+  ['GET', '/api/public/notice-settings', noticeSettings],
   ['POST', '/api/translate', translateApi],
   ['GET', '/api/media/:id', media],
 
@@ -184,6 +185,13 @@ async function reference(env, req, user) {
     lsgds: lsgds.results, referral_centres: centres.results, kb_items: kb.results, glossary: glossary.results,
     settings: Object.fromEntries(settings.results.map(r => [r.key, r.value])), media_backend: env.MEDIA_BUCKET ? 'r2' : 'd1',
   });
+}
+
+// Contact details for the public privacy notice page (no personal data).
+async function noticeSettings(env) {
+  const { results } = await env.CLINICAL.prepare(
+    "SELECT key, value FROM settings WHERE key IN ('org_legal_name','org_address','grievance_name','grievance_phone','grievance_email','retention_years','grievance_days')").all();
+  return json(Object.fromEntries(results.map(r => [r.key, r.value])));
 }
 
 async function translateApi(env, req, user) {

@@ -2,6 +2,7 @@
 import { HttpError, json, body, personId, caseId, uid, str, int, oneOf, parseJSON, audit, addMonths, nowIso } from './util.js';
 import { requireRole } from './auth.js';
 import { putMedia, cleanJpeg } from './media.js';
+import { KNOWN_VERSIONS } from '../public/shared/consent.js';
 import { triage, flagMedicines, ohatTotal, gohaiTotal, ageBand, OHAT_ITEMS, COMPLAINTS, PHOTO_VIEWS, LOCATION_OVERRIDE_REASONS, LSGD_TYPES, detectLang } from '../public/shared/clinical.js';
 
 const FIELD_ROLES = ['worker', 'coordinator', 'admin'];
@@ -119,19 +120,22 @@ export async function submitVisit(env, req, user) {
     "SELECT 1 FROM consents WHERE person_id = ? AND layer = 'care' AND granted = 1 AND withdrawn_at IS NULL").bind(person.id).first();
   const newCare = consents.find(c => c.layer === 'care' && c.granted);
   if (!existingCare && !newCare) throw new HttpError(400, 'Consent for care is required before screening');
-  const noticeVersion = (await env.CLINICAL.prepare("SELECT value FROM settings WHERE key='consent_notice_version'").first())?.value || 'draft';
   for (const c of consents) {
     const layer = oneOf(c.layer, ['care', 'photos', 'research', 'messaging', 'abha']);
     const method = oneOf(c.method, ['signature', 'thumb', 'verbal_witnessed', 'caregiver_assent']);
     const capacity = oneOf(c.capacity, ['has_capacity', 'doubtful', 'lacks']);
     if (!layer || !method || !capacity) throw new HttpError(400, 'Consent record is incomplete');
     if (capacity !== 'has_capacity' && method !== 'caregiver_assent') throw new HttpError(400, 'When capacity is doubtful, record caregiver assent');
-    if (method === 'caregiver_assent' && !str(c.assent_by)) throw new HttpError(400, 'Name of the caregiver giving assent is required');
+    if (method === 'caregiver_assent' && !str(c.assent_by)) throw new HttpError(400, 'Name of the person deciding for them is required');
+    const deciderType = method === 'caregiver_assent' ? oneOf(c.decider_type, ['lawful_guardian', 'nominee', 'family']) : null;
+    if (method === 'caregiver_assent' && !deciderType && c.notice_version && c.notice_version !== '2026-10-draft') throw new HttpError(400, 'Choose who is deciding for the person');
+    const noticeVersion = KNOWN_VERSIONS.includes(c.notice_version || '2026-10-draft') ? (c.notice_version || '2026-10-draft') : null;
+    if (!noticeVersion) throw new HttpError(400, 'This consent was taken with an unknown notice version. Update the app and take consent again.');
     if (method === 'verbal_witnessed' && !str(c.witness_name)) throw new HttpError(400, 'Witness name is required for verbal consent');
     stmts.push(env.IDENTITY.prepare(
-      `INSERT INTO consents (id, person_id, layer, granted, method, witness_name, capacity, assent_by, assent_relation, notice_version, notice_language, recorded_by)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).bind(uid('CN-'), person.id, layer, c.granted ? 1 : 0, method, str(c.witness_name, 120), capacity,
-      str(c.assent_by, 120), str(c.assent_relation, 40), noticeVersion, oneOf(c.notice_language, ['en', 'ml', 'ta', 'kn', 'te', 'hi'], 'ml'), user.id));
+      `INSERT INTO consents (id, person_id, layer, granted, method, witness_name, capacity, assent_by, assent_relation, decider_type, copy_offered, notice_version, notice_language, recorded_by)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(uid('CN-'), person.id, layer, c.granted ? 1 : 0, method, str(c.witness_name, 120), capacity,
+      str(c.assent_by, 120), str(c.assent_relation, 40), deciderType, c.copy_offered ? 1 : 0, noticeVersion, oneOf(c.notice_language, ['en', 'ml', 'ta', 'kn', 'te', 'hi'], 'ml'), user.id));
   }
   if (stmts.length) await env.IDENTITY.batch(stmts);
 

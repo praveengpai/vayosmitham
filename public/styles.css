@@ -263,3 +263,8 @@ table.t td.num, table.t th.num { text-align: right; font-variant-numeric: tabula
   main { padding: 0; max-width: none; }
   .report-page { border: 0; max-width: none; }
 }
+
+.notice { font-size: 1rem; max-height: 60vh; overflow: auto; }
+.notice h3 { margin: 14px 0 4px; color: var(--green-2); }
+.notice h3:first-child { margin-top: 0; }
+.notice p { margin: 0 0 4px; }

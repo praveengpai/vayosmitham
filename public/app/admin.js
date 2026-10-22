@@ -3,6 +3,7 @@ import { html, useState, useEffect, state, useAppState, go, t, L, toast, useLoad
 import { api } from './api.js';
 import { ScreeningSummary } from './field.js';
 import { STATES, KERALA_DISTRICTS, LSGD_TYPES, PHOTO_VIEWS, REFERRAL_TYPES, RED_FLAGS } from '/shared/clinical.js';
+import { CONSENT_VERSION, isDraft } from '/shared/consent.js';
 
 const SECTIONS = {
   admin: [['dashboard', 'Dashboard'], ['users', 'Users'], ['referral_centres', 'Referral centres'], ['kb_items', 'Knowledge base'], ['glossary', 'Glossary'],
@@ -240,8 +241,12 @@ function Settings() {
     ${num('sla_routine_hours', 'Target hours for routine cases')}
     ${num('audit_sample_percent', 'Percent of opinions sampled for clinical audit')}
     ${num('small_cell_threshold', 'Hide counts below this number in exports')}
-    <${Field} label=${t('Consent notice version')} hint=${t('Change this when the legally reviewed notice is adopted; it is stored with every consent. While it contains "draft", the app shows a test-data banner.')}>
-      <input type="text" value=${f.consent_notice_version} onInput=${e => setF({ ...f, consent_notice_version: e.target.value })} /><//>
+    <h2 style="margin-top:12px">${t('Privacy notice details')}</h2>
+    <p class="small muted">${t('These appear in the notice read to every person. The notice is incomplete until all are filled.')} ${t('Notice version')}: <strong>${CONSENT_VERSION}</strong>${isDraft(CONSENT_VERSION) ? ' — ' + t('awaiting legal approval') : ''}. <a href="/privacy.html" target="_blank" rel="noopener">${t('View notice')}</a></p>
+    ${[['org_legal_name', 'Organisation legal name'], ['org_address', 'Registered address'], ['grievance_name', 'Grievance officer / data protection contact (name and designation)'],
+      ['grievance_phone', 'Grievance phone'], ['grievance_email', 'Grievance email']].map(([k, label]) => html`<${Field} label=${t(label)}><input type="text" value=${f[k] || ''} onInput=${e => setF({ ...f, [k]: e.target.value })} /><//>`)}
+    ${num('retention_years', 'Years to keep identifiable records after the last visit')}
+    ${num('grievance_days', 'Days within which grievances are answered')}
     <p class="small muted">${t('Photo storage')}: ${s.ref?.media_backend === 'r2' ? 'Cloudflare R2' : t('interim database (enable R2 before scale-up)')}</p>
     <div class="btn-row"><button class="btn primary">${t('Save')}</button></div></form>`;
 }
@@ -262,8 +267,8 @@ function ConsentLog() {
   const d = useLoad(() => api('/api/admin/consents'), []);
   if (d.loading || d.error) return html`<${Loading} error=${d.error} retry=${d.reload} />`;
   return html`<h1>${t('Consent log')}</h1><div class="table-wrap"><table class="t"><thead><tr><th>${t('Person ID')}</th><th>${t('Consent')}</th><th>${t('Given')}</th>
-    <th>${t('How')}</th><th>${t('Capacity')}</th><th>${t('Notice')}</th><th>${t('Recorded')}</th><th>${t('Withdrawn')}</th></tr></thead>
-    <tbody>${d.data.consents.map(c => html`<tr><td>${c.person_id}</td><td>${c.layer}</td><td>${c.granted ? t('Yes') : t('No')}</td><td class="small">${c.method}</td><td class="small">${c.capacity}</td>
+    <th>${t('How')}</th><th>${t('Capacity')}</th><th>${t('Decided by')}</th><th>${t('Notice')}</th><th>${t('Recorded')}</th><th>${t('Withdrawn')}</th></tr></thead>
+    <tbody>${d.data.consents.map(c => html`<tr><td>${c.person_id}</td><td>${c.layer}</td><td>${c.granted ? t('Yes') : t('No')}</td><td class="small">${c.method}</td><td class="small">${c.capacity}</td><td class="small">${c.decider_type || ''}</td>
       <td class="small">${c.notice_version}</td><td class="small nowrap">${c.recorded_at}</td><td class="small">${c.withdrawn_at || ''} ${c.withdrawn_reason || ''}</td></tr>`)}</tbody></table></div>`;
 }
 

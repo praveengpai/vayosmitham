@@ -4,26 +4,9 @@ import { html, useState, useEffect, useRef, state, useAppState, go, t, L, toast,
 import { api, putOutbox, uuid, vaultUnlocked } from './api.js';
 import { refreshOutbox, runSync } from './main.js';
 import { processPhoto } from './photo.js';
-import { consentLabel } from './field.js';
+import { CONSENT_VERSION, noticeSections, noticeText, LAYERS, DECIDER_TYPES, contactGaps } from '/shared/consent.js';
 import { OHAT_ITEMS, GOHAI_ITEMS, GOHAI_OPTIONS, COMPLAINTS, RED_FLAGS, PHOTO_VIEWS, STATES, KERALA_DISTRICTS, LSGD_TYPES, LOCATION_OVERRIDE_REASONS,
   flagMedicines, MEDICINE_FLAGS, ohatTotal, gohaiTotal, detectLang } from '/shared/clinical.js';
-
-const CONSENT_NOTICE = {
-  en: `Vayosmitham is a free oral health programme for older people run by Community Innovation Foundation with the Association of Geriatric Dentistry (AGeD).
-• I will ask some questions about your mouth, teeth and health, and, if you agree, take photos inside your mouth.
-• A volunteer dentist will look at the answers and photos and give advice. The dentist will not see your name, phone number or address.
-• Your details are stored securely and are seen only by the programme team who need them. You will get a written report you can take to a dental clinic.
-• This is advice from screening, not a full dental examination or treatment.
-• You can say no to any part, and you can withdraw at any time. Saying no will not affect any other care you receive.
-• If you agree, information without your name may be used for research and to plan better services for older people.`,
-  ml: `കമ്മ്യൂണിറ്റി ഇന്നൊവേഷൻ ഫൗണ്ടേഷനും അസോസിയേഷൻ ഓഫ് ജെറിയാട്രിക് ഡെന്റിസ്ട്രിയും (AGeD) ചേർന്ന് പ്രായമായവർക്കായി നടത്തുന്ന സൗജന്യ ദന്താരോഗ്യ പരിപാടിയാണ് വയോസ്മിതം.
-• നിങ്ങളുടെ വായ, പല്ല്, ആരോഗ്യം എന്നിവയെക്കുറിച്ച് ചില ചോദ്യങ്ങൾ ചോദിക്കും. നിങ്ങൾ സമ്മതിച്ചാൽ വായയ്ക്കുള്ളിലെ ഫോട്ടോ എടുക്കും.
-• ഒരു സന്നദ്ധ ദന്ത ഡോക്ടർ ഉത്തരങ്ങളും ഫോട്ടോകളും പരിശോധിച്ച് ഉപദേശം നൽകും. നിങ്ങളുടെ പേരോ ഫോൺ നമ്പറോ വിലാസമോ ഡോക്ടർ കാണില്ല.
-• നിങ്ങളുടെ വിവരങ്ങൾ സുരക്ഷിതമായി സൂക്ഷിക്കും; ആവശ്യമുള്ള പരിപാടി അംഗങ്ങൾ മാത്രമേ കാണൂ. ദന്ത ക്ലിനിക്കിൽ കൊണ്ടുപോകാവുന്ന ഒരു റിപ്പോർട്ട് ലഭിക്കും.
-• ഇത് പരിശോധനയിൽ നിന്നുള്ള ഉപദേശമാണ്; പൂർണ്ണ ദന്ത പരിശോധനയോ ചികിത്സയോ അല്ല.
-• ഏത് ഭാഗത്തിനും വേണ്ട എന്ന് പറയാം; എപ്പോൾ വേണമെങ്കിലും പിന്മാറാം. അത് നിങ്ങൾക്ക് ലഭിക്കുന്ന മറ്റ് ചികിത്സകളെ ബാധിക്കില്ല.
-• നിങ്ങൾ സമ്മതിച്ചാൽ, പേരില്ലാത്ത വിവരങ്ങൾ ഗവേഷണത്തിനും പ്രായമായവർക്കുള്ള മികച്ച സേവനങ്ങൾ ആസൂത്രണം ചെയ്യാനും ഉപയോഗിക്കാം.`,
-};
 
 const STEPS = ['person', 'consent', 'flags', 'complaints', 'ohat', 'teeth', 'health', 'habits', 'gohai', 'photos', 'review'];
 const DRAFT_KEY = 'vs_visit_draft';
@@ -33,7 +16,7 @@ function blankVisit(user, personId) {
     client_uuid: uuid(), visit_type: personId ? 'followup' : 'baseline', person_id: personId || null,
     person: { client_uuid: uuid(), name: '', sex: '', birth_year: '', age: '', phone: '', address: '', state: user.state || 'Kerala', district: user.district || '',
       lsgd_type: user.lsgd_type || '', lsgd_name: user.lsgd_name || '', ward: user.ward || '', location_override_reason: '', caregiver_name: '', caregiver_phone: '', caregiver_relation: '' },
-    consent: { capacity: 'has_capacity', method: 'signature', witness_name: '', assent_by: '', assent_relation: '', layers: { care: true, photos: true, research: false, messaging: false }, read: false, notice_language: 'ml' },
+    consent: { capacity: 'has_capacity', method: 'signature', witness_name: '', assent_by: '', assent_relation: '', decider_type: '', layers: { care: false, photos: false, research: false, messaging: false }, read: false, notice_language: 'ml', copy_offered: false },
     red_flags: [], none_flags: false,
     screening: { complaints: [], complaint_text: '', ohat: {}, gohai: Array(12).fill(null), skip_gohai: false, natural_teeth: '', denture_upper: '', denture_lower: '', denture_fit: '',
       context: {}, medicines: [], risks: {}, worker_notes: '' },
@@ -80,7 +63,9 @@ export function VisitWizard({ personId }) {
     if (name === 'consent') {
       if (!hasCare && !v.consent.layers.care) return t('Without consent for screening the visit cannot be recorded. Thank the person and end the visit.');
       if (!v.consent.read) return t('Confirm that you explained the information');
-      if (v.consent.capacity !== 'has_capacity' && !v.consent.assent_by.trim()) return t('Enter the name of the caregiver giving assent');
+      if (v.consent.capacity !== 'has_capacity' && !v.consent.assent_by.trim()) return t('Enter the name of the person deciding for them');
+      if (v.consent.capacity !== 'has_capacity' && !v.consent.decider_type) return t('Choose who is deciding for them');
+      if (!v.consent.copy_offered) return t('Confirm that you offered a copy of the notice');
       if (v.consent.capacity === 'has_capacity' && v.consent.method === 'verbal_witnessed' && !v.consent.witness_name.trim()) return t('Enter the witness name');
     }
     if (name === 'flags' && !v.red_flags.length && !v.none_flags) return t('Tick the warning signs, or "None of these"');
@@ -151,7 +136,7 @@ function buildPayload(v, user, personId, hasCare) {
   const c = v.consent, sc = v.screening;
   const method = c.capacity === 'has_capacity' ? c.method : 'caregiver_assent';
   const consents = Object.entries(c.layers).filter(([layer]) => !(layer === 'care' && hasCare && !c.layers.care)).map(([layer, granted]) => ({
-    layer, granted, method, capacity: c.capacity, witness_name: c.witness_name, assent_by: c.assent_by, assent_relation: c.assent_relation, notice_language: c.notice_language,
+    layer, granted, method, capacity: c.capacity, witness_name: c.witness_name, assent_by: c.assent_by, assent_relation: c.assent_relation, decider_type: c.decider_type, notice_language: c.notice_language, notice_version: CONSENT_VERSION,
   }));
   const p = { ...v.person };
   if (!p.birth_year && p.age) p.birth_year = new Date().getFullYear() - Number(p.age);
@@ -223,39 +208,50 @@ function PersonStep({ p, upd, user }) {
 }
 
 function ConsentStep({ c, upd, hasCare, prior }) {
+  const s = useAppState();
+  const settings = s.ref?.settings || {};
+  const lang = c.notice_language;
   const speak = () => {
     if (!('speechSynthesis' in window)) return toast(t('Reading aloud is not available on this phone'), true);
     speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(CONSENT_NOTICE[c.notice_language]);
-    u.lang = c.notice_language === 'ml' ? 'ml-IN' : 'en-IN';
+    const u = new SpeechSynthesisUtterance(noticeText(lang, settings));
+    u.lang = lang === 'ml' ? 'ml-IN' : 'en-IN';
     u.rate = 0.9;
     speechSynthesis.speak(u);
   };
   const layers = ['care', 'photos', 'research', 'messaging'].filter(l => !(prior.includes(l)));
+  const gaps = contactGaps(settings);
   return html`<div class="stack">
     <h2>${t('Information and consent')}</h2>
     ${hasCare && html`<div class="callout ok">${t('Consent for screening was recorded at an earlier visit. Check that the person is still happy to continue.')}</div>`}
+    ${gaps.length > 0 && html`<div class="callout warn small">${t('The notice is missing contact details. Ask the administrator to fill them in under Settings.')}</div>`}
     <div class="row between">
-      <${Choices} name="nl" value=${c.notice_language} onChange=${x => upd('consent.notice_language', x)} options=${[{ key: 'ml', label: 'മലയാളം' }, { key: 'en', label: 'English' }]} />
-      <button class="btn" onClick=${speak}>🔊 ${t('Read aloud')}</button>
+      <${Choices} name="nl" value=${lang} onChange=${x => upd('consent.notice_language', x)} options=${[{ key: 'ml', label: 'മലയാളം' }, { key: 'en', label: 'English' }]} />
+      <span class="row"><button type="button" class="btn" onClick=${speak}>🔊 ${t('Read aloud')}</button>
+        <a class="btn" href=${'/privacy.html?lang=' + lang} target="_blank" rel="noopener">${t('Printable copy')}</a></span>
     </div>
-    <div class="panel" lang=${c.notice_language} style="white-space:pre-line;font-size:1.05rem">${CONSENT_NOTICE[c.notice_language]}</div>
-    <${Field} label=${t('Can the person understand and decide for themselves?')}>
+    <div class="panel notice" lang=${lang}>${noticeSections(lang, settings).map(sec => html`<h3>${sec.h}</h3>${sec.p.map(p => html`<p>${p}</p>`)}`)}
+      <p class="tiny">${t('Notice version')} ${CONSENT_VERSION}</p></div>
+    <${Field} label=${t('Can the person understand this information and decide for themselves?')}>
       <${Choices} name="cap" value=${c.capacity} onChange=${x => upd('consent.capacity', x)} options=${[
         { key: 'has_capacity', label: t('Yes') }, { key: 'doubtful', label: t('Not sure (e.g. memory problems)') }, { key: 'lacks', label: t('No') }]} /><//>
     ${c.capacity === 'has_capacity' ? html`
       <${Field} label=${t('How did they agree?')}><${Choices} name="m" value=${c.method} onChange=${x => upd('consent.method', x)} options=${[
         { key: 'signature', label: t('Signed on paper form') }, { key: 'thumb', label: t('Thumb impression on paper form') }, { key: 'verbal_witnessed', label: t('Spoken, with a witness') }]} /><//>
-      ${c.method === 'verbal_witnessed' && html`<${Field} label=${t('Witness name')}><input type="text" value=${c.witness_name} onInput=${e => upd('consent.witness_name', e.target.value)} /><//>`}`
-    : html`<div class="callout warn">${t('Ask a family member or caregiver to agree on their behalf, and still explain to the person and stop if they object.')}</div>
-      <div class="grid-2"><${Field} label=${t('Caregiver giving assent')}><input type="text" value=${c.assent_by} onInput=${e => upd('consent.assent_by', e.target.value)} /><//>
+      ${c.method === 'verbal_witnessed' && html`<${Field} label=${t('Witness name')} hint=${t('An adult who is not a programme worker')}><input type="text" value=${c.witness_name} onInput=${e => upd('consent.witness_name', e.target.value)} /><//>`}`
+    : html`<div class="callout warn">${t('Someone must decide in the person’s best interests. Prefer a lawful guardian if one exists. Still explain to the person, and stop if they object or seem distressed.')}</div>
+      <${Field} label=${t('Who is deciding for them?')}><${Choices} name="dt" value=${c.decider_type} onChange=${x => upd('consent.decider_type', x)}
+        options=${DECIDER_TYPES.map(d => ({ key: d.key, label: L(d) }))} /><//>
+      <div class="grid-2"><${Field} label=${t('Name of the person deciding')}><input type="text" value=${c.assent_by} onInput=${e => upd('consent.assent_by', e.target.value)} /><//>
         <${Field} label=${t('Relation')}><input type="text" value=${c.assent_relation} onInput=${e => upd('consent.assent_relation', e.target.value)} /><//></div>`}
-    <div><span class="lbl">${t('The person agrees to')}</span>
+    <div><span class="lbl">${t('Tick only what the person agrees to')}</span>
       <div class="stack">${layers.map(l => html`<label class=${'choice block' + (c.layers[l] ? ' on' : '')}>
         <input type="checkbox" checked=${c.layers[l]} onChange=${e => upd('consent.layers.' + l, e.target.checked)} />
-        <span><span class="t">${t(consentLabel(l))}</span>${l === 'care' ? html`<span class="d">${t('Needed to continue')}</span>` : l === 'research' ? html`<span class="d">${t('Optional. Name and contact details are never shared.')}</span>` : ''}</span></label>`)}</div></div>
+        <span><span class="t">${LAYERS[l][lang][0]}</span><span class="d">${LAYERS[l][lang][1]}</span></span></label>`)}</div></div>
     <label class=${'choice block' + (c.read ? ' on' : '')}><input type="checkbox" checked=${c.read} onChange=${e => upd('consent.read', e.target.checked)} />
-      <span class="t">${t('I explained this information and answered their questions')}</span></label>
+      <span class="t">${t('I explained this information in a language they understand and answered their questions')}</span></label>
+    <label class=${'choice block' + (c.copy_offered ? ' on' : '')}><input type="checkbox" checked=${c.copy_offered} onChange=${e => upd('consent.copy_offered', e.target.checked)} />
+      <span class="t">${t('I offered them a copy of this notice (printed, or the link)')}</span></label>
   </div>`;
 }
 
