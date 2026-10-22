@@ -13,8 +13,10 @@ def watch(page, who):
     page.on('console', lambda m: m.type == 'error' and errors.append(f'{who}: {m.text}'))
     page.on('pageerror', lambda e: errors.append(f'{who} pageerror: {e}'))
 
-def login(page, phone):
+def login(page, phone, lang=None):
     page.goto(BASE + '/')
+    if lang:
+        page.locator('.lang-pick button', has_text=lang).click(); page.wait_for_timeout(500)
     page.fill('input[type=tel]', phone)
     page.fill('input[type=password]', PIN)
     page.click('button.btn.primary')
@@ -28,7 +30,9 @@ with sync_playwright() as p:
     # ---------- field worker on a phone ----------
     ctx = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     w = ctx.new_page(); watch(w, 'worker')
-    login(w, '9000000002')
+    w.goto(BASE + '/'); w.wait_for_timeout(1500); shot(w, '00-login-en')
+    w.locator('.lang-pick button', has_text='தமிழ்').click(); w.wait_for_timeout(800); shot(w, '00-login-ta')
+    login(w, '9000000002', 'മലയാളം')
     w.wait_for_timeout(800); shot(w, '01-worker-home')
     w.click('a[href="#/visit"].btn')
     w.wait_for_selector('text=About the person, text=വ്യക്തിയെക്കുറിച്ച്', timeout=5000) if False else w.wait_for_timeout(500)
