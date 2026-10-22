@@ -1,0 +1,43 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vayosmitham",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "preview_urls": false,
+  "assets": {
+    "directory": "public",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/v/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "IDENTITY",
+      "database_name": "vayosmitham-identity",
+      "database_id": "6367bcea-ed06-4b68-af72-74c0d2d02389",
+      "migrations_dir": "migrations/identity"
+    },
+    {
+      "binding": "CLINICAL",
+      "database_name": "vayosmitham-clinical",
+      "database_id": "1292a951-1b3a-4642-ae2f-ad073d7738e3",
+      "migrations_dir": "migrations/clinical"
+    },
+    {
+      "binding": "MEDIA_DB",
+      "database_name": "vayosmitham-media",
+      "database_id": "23f18e44-dba1-46fa-8bd1-b2f089c6687a",
+      "migrations_dir": "migrations/media"
+    }
+  ],
+  // When R2 is enabled on the account, uncomment this block; photos then go to R2 automatically.
+  // "r2_buckets": [{ "binding": "MEDIA_BUCKET", "bucket_name": "vayosmitham-media" }],
+  "ai": { "binding": "AI" },
+  "vars": {
+    "APP_NAME": "Vayosmitham",
+    "ENVIRONMENT": "pilot-demo"
+  },
+  "triggers": { "crons": ["15 * * * *"] },
+  "observability": { "enabled": true }
+}

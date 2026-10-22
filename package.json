@@ -1,0 +1,32 @@
+{
+  "name": "vayosmitham",
+  "version": "0.1.0",
+  "description": "Vayosmitham — community geriatric oral health platform (CIF with AGeD)",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate:local": "for d in vayosmitham-identity vayosmitham-clinical vayosmitham-media; do wrangler d1 migrations apply $d --local; done",
+    "db:migrate:remote": "for d in vayosmitham-identity vayosmitham-clinical vayosmitham-media; do wrangler d1 migrations apply $d --remote; done",
+    "test:api": "node scripts/api-test.mjs",
+    "test:ui": "python3 scripts/ui-test.py"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/praveengpai/vayosmitham.git"
+  },
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/praveengpai/vayosmitham/issues"
+  },
+  "homepage": "https://github.com/praveengpai/vayosmitham#readme",
+  "devDependencies": {
+    "wrangler": "^4.151.3"
+  },
+  "dependencies": {
+    "htm": "^3.1.1",
+    "preact": "^10.29.8",
+    "qrcode-generator": "^1.5.2"
+  },
+  "private": true,
+  "type": "module"
+}
