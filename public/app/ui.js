@@ -15,10 +15,13 @@ export function useAppState() {
   return state;
 }
 
-// UI language: English or Malayalam. Strings without a Malayalam entry fall back to English.
 // Interface language: chosen on the sign-in page (stored on this device) or in the profile. Default English.
+// Strings without a translation fall back to English.
 export const uiLang = () => state.lang || state.user?.ui_lang || 'en';
-export function tIn(lang, s) { return (lang !== 'en' && DICTS[lang]?.ui?.[s]) || s; }
+// Stored values (visit types, person status) shown through t(): readable English labels.
+const EN_LABELS = { followup: 'Follow-up visit', baseline: 'First visit', problem: 'Problem visit',
+  active: 'Active', migrated: 'Moved away', died: 'Died', lost: 'Lost to follow-up' };
+export function tIn(lang, s) { return (lang !== 'en' && DICTS[lang]?.ui?.[s]) || (lang === 'en' && EN_LABELS[s]) || s; }
 export function t(s) { return tIn(uiLang(), s); }
 export function LIn(lang, obj) {
   if (!obj) return '';
