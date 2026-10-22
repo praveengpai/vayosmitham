@@ -7,12 +7,13 @@
 //     grievance officer) — applies until the DPDP Rules fully commence on 13 May 2027;
 //   • ICMR National Ethical Guidelines 2017 (separate, optional research consent; legally acceptable representative).
 //
-// It is NOT yet approved by counsel. While CONSENT_VERSION contains "DRAFT" the app shows a test-data banner.
+// While CONSENT_VERSION contains "DRAFT" the app shows a test-data banner.
 // When counsel approves the text: change the text if needed, set a new CONSENT_VERSION without "DRAFT",
 // and add the old version to PREVIOUS_VERSIONS so consents already recorded stay valid.
 
-export const CONSENT_VERSION = '2026-10-22-v2-DRAFT';
-export const PREVIOUS_VERSIONS = ['2026-10-draft'];
+// Approved by Dr. Praveen G Pai, Chairman, on 22 October 2026.
+export const CONSENT_VERSION = '2026-10-22-v2';
+export const PREVIOUS_VERSIONS = ['2026-10-22-v2-DRAFT', '2026-10-draft'];
 export const KNOWN_VERSIONS = [CONSENT_VERSION, ...PREVIOUS_VERSIONS];
 export const isDraft = v => /draft/i.test(v || '');
 

@@ -1,7 +1,7 @@
 // Service worker: keeps the app shell available offline.
 // API responses are never cached here (they may contain personal data); offline visits live in the
 // encrypted outbox in IndexedDB instead.
-const VERSION = 'vs-2026-10-22-2';
+const VERSION = 'vs-2026-10-22-3';
 const SHELL = [
   '/', '/index.html', '/styles.css', '/manifest.webmanifest',
   '/app/main.js', '/app/api.js', '/app/i18n.js', '/app/ui.js', '/app/field.js', '/app/visit.js', '/app/dentist.js', '/app/admin.js', '/app/report.js', '/app/photo.js',
