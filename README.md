@@ -4,6 +4,11 @@ Community geriatric oral health platform of **Community Innovation Foundation (C
 
 Field health workers screen older people at home on a phone. Volunteer dentists review each case **without seeing who the person is**, and send back an opinion, a care plan and, when needed, a referral. The worker shows the opinion to the person in their own language, prints a verifiable referral report, and records whether the person reached care. The same person is re-screened over time, building a longitudinal record for policy.
 
+## Live pilot
+
+- App: https://vayosmitham.praveengpai.workers.dev (Cloudflare free plan)
+- Short address: https://vayosmitham.cifindia.org redirects to the app (Hostinger subdomain with a `.htaccess` redirect in `public_html/vayosmitham`). To serve the app directly on this name, move cifindia.org DNS to Cloudflare and add it as a Worker custom domain.
+
 ## What is built
 
 | Area | Features |
