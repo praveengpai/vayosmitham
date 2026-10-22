@@ -182,7 +182,7 @@ function InfoReply({ caseId, q, target, showTx, onDone }) {
   return html`<form class="callout warn stack" style="margin-bottom:16px" onSubmit=${send}>
     <h3>${t('The dentist asks')}</h3>
     <${TranslatedText} text=${q.message} lang=${q.message_lang} target=${target} show=${showTx} />
-    <${Field} label=${t('Your reply')} hint=${t('You can type in Malayalam or English. To add a new photo, start a new visit for this person.')}><textarea value=${text} onInput=${e => setText(e.target.value)} required></textarea><//>
+    <${Field} label=${t('Your reply')} hint=${t('You can type in your own language or English. To add a new photo, start a new visit for this person.')}><textarea value=${text} onInput=${e => setText(e.target.value)} required></textarea><//>
     <div class="btn-row"><button class="btn primary">${t('Send reply')}</button></div>
   </form>`;
 }

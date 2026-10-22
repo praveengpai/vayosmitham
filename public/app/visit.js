@@ -59,7 +59,7 @@ export function VisitWizard({ personId }) {
       if (!p.sex) return t('Choose sex');
       if (!p.birth_year && !p.age) return t('Enter age or year of birth');
       if (!p.state || !p.district || !p.lsgd_type || !p.lsgd_name) return t('State, district and LSGD are needed');
-      if (p.pincode && !validPincode(p.pincode)) return t('PIN code must be 6 digits');
+      if (p.pincode && !validPincode(p.pincode)) return t('Postal PIN code must be 6 digits');
       if (locationChanged(p, user) && !p.location_override_reason) return t('Choose why the location is different from your area');
     }
     if (name === 'consent') {
@@ -163,7 +163,7 @@ function PersonStep({ p, upd, user }) {
   const resetLoc = () => { ['state', 'district', 'lsgd_type', 'lsgd_name', 'ward'].forEach(k => upd('person.' + k, user[k] || '')); upd('person.location_override_reason', ''); setShowLoc(false); };
   return html`<div class="stack">
     <h2>${t('About the person')}</h2>
-    <${Field} label=${t('Full name')} hint=${t('Type in English or Malayalam')}><input type="text" value=${p.name} onInput=${e => upd('person.name', e.target.value)} onBlur=${checkDup} autocomplete="off" /><//>
+    <${Field} label=${t('Full name')} hint=${t('Type in English or your own language')}><input type="text" value=${p.name} onInput=${e => upd('person.name', e.target.value)} onBlur=${checkDup} autocomplete="off" /><//>
     ${dups.length > 0 && html`<div class="callout warn"><strong>${t('Already enrolled?')}</strong>
       ${dups.map(d => html`<div class="row between" style="margin-top:6px"><span>${d.name} · ${d.birth_year || ''} · ${d.lsgd_name} ${d.ward ? t('ward') + ' ' + d.ward : ''} (${d.id})</span>
         <a class="btn" href=${'#/visit/' + d.id} onClick=${() => sessionStorage.removeItem(DRAFT_KEY)}>${t('Use this person')}</a></div>`)}</div>`}
@@ -174,7 +174,7 @@ function PersonStep({ p, upd, user }) {
     </div>
     <${Field} label=${t('Phone (optional)')}><input type="tel" inputmode="tel" value=${p.phone} onInput=${e => upd('person.phone', e.target.value)} /><//>
     <${Field} label=${t('House name / address')}><input type="text" value=${p.address} onInput=${e => upd('person.address', e.target.value)} /><//>
-    <${Field} label=${t('PIN code (optional)')}><input type="text" inputmode="numeric" maxlength="6" style="max-width:160px" value=${p.pincode || ''} onInput=${e => upd('person.pincode', e.target.value.replace(/\D/g, ''))} /><//>
+    <${Field} label=${t('Postal PIN code (optional)')}><input type="text" inputmode="numeric" maxlength="6" style="max-width:160px" value=${p.pincode || ''} onInput=${e => upd('person.pincode', e.target.value.replace(/\D/g, ''))} /><//>
 
     <div class="panel">
       <div class="row between"><div><span class="lbl">${t('Location')}</span>
@@ -278,7 +278,7 @@ function ComplaintsStep({ sc, upd }) {
   return html`<div class="stack">
     <h2>${t('What problems does the person have?')}</h2>
     <${Choices} multi name="cmp" value=${sc.complaints} onChange=${x => upd('screening.complaints', x)} options=${COMPLAINTS.map(c => ({ key: c.key, label: L(c) }))} />
-    <${Field} label=${t('In the person’s own words (optional)')} hint=${t('Type in Malayalam or English. The dentist sees exactly what you type, with a translation.')}>
+    <${Field} label=${t('In the person’s own words (optional)')} hint=${t('Type in your own language or English. The dentist sees exactly what you type, with a translation.')}>
       <textarea value=${sc.complaint_text} onInput=${e => upd('screening.complaint_text', e.target.value)}></textarea><//>
     ${sc.complaint_text && html`<p class="tiny">${t('Language detected')}: ${detectLang(sc.complaint_text)}</p>`}
   </div>`;

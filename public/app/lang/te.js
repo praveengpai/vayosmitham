@@ -23,7 +23,7 @@ export default {
   "Ask and look. Tick every sign that is present.": "అడగండి, చూడండి. కనిపించే ప్రతి లక్షణానికీ టిక్ పెట్టండి.",
   "Ask each question. \"In the last 3 months, how often have you…\"": "ప్రతి ప్రశ్నా అడగండి. \"గత 3 నెలల్లో, మీకు ఎంత తరచుగా…\"",
   "Back": "వెనక్కి",
-  "Broken": "విరిగింది",
+  "Broken": "విరిగిపోయాయి",
   "Can the person understand and decide for themselves?": "ఆ వ్యక్తి స్వయంగా అర్థం చేసుకుని నిర్ణయం తీసుకోగలరా?",
   "Cancel": "రద్దు చేయండి",
   "Caregiver": "సంరక్షకులు",
@@ -36,7 +36,7 @@ export default {
   "Change over time": "కాలక్రమేణా మార్పు",
   "Charcoal or powder": "బొగ్గు లేదా పళ్ళపొడి",
   "Check and send": "సరిచూసి పంపండి",
-  "Chewing tobacco, pan, gutka": "నమిలే పొగాకు, కిళ్ళీ, గుట్కా",
+  "Chewing tobacco, pan, gutka": "నమిలే పొగాకు, పాన్/కిళ్ళీ, గుట్కా",
   "Choose at least one, or \"No complaint\"": "కనీసం ఒకటి ఎంచుకోండి, లేదా \"ఏ సమస్యా లేదు\"",
   "Choose sex": "లింగం ఎంచుకోండి",
   "Choose why the location is different from your area": "ఈ ప్రదేశం మీ ప్రాంతం కంటే ఎందుకు వేరుగా ఉందో ఎంచుకోండి",
@@ -44,7 +44,7 @@ export default {
   "Cleans with": "దేనితో శుభ్రం చేస్తారు",
   "Close": "మూసివేయండి",
   "Complaints": "సమస్యలు",
-  "Complete": "పూర్తయింది",
+  "Complete": "పూర్తి సెట్",
   "Confirm that you explained the information": "మీరు సమాచారం వివరించారని నిర్ధారించండి",
   "Consent": "సమ్మతి",
   "Consent for screening was recorded at an earlier visit. Check that the person is still happy to continue.": "స్క్రీనింగ్‌కు సమ్మతి ఇంతకు ముందు సందర్శనలో నమోదైంది. ఆ వ్యక్తి ఇప్పటికీ కొనసాగడానికి ఇష్టపడుతున్నారో లేదో చూసుకోండి.",
@@ -72,9 +72,9 @@ export default {
   "Female": "స్త్రీ",
   "Filled in from your own area.": "మీ సొంత ప్రాంతం నుండి నింపబడింది.",
   "Finger": "వేలు",
-  "Findings": "కనుగొన్నవి",
+  "Findings": "పరీక్షలో గమనించినవి",
   "Care plan": "చికిత్స ప్రణాళిక",
-  "What the dentist sees": "దంత వైద్యులు చూసింది",
+  "What the dentist sees": "దంత వైద్యులు గమనించినది",
   "Fit well": "సరిగ్గా సరిపోతున్నాయి",
   "Follow-up visit": "తదుపరి సందర్శన",
   "Follow-up visits due": "చేయాల్సిన తదుపరి సందర్శనలు",
@@ -98,7 +98,7 @@ export default {
   "LSGD type": "LSGD రకం",
   "Language": "భాష",
   "Language detected": "గుర్తించిన భాష",
-  "Last visit to a dentist": "దంత వైద్యుల దగ్గరకు చివరిసారి వెళ్ళింది",
+  "Last visit to a dentist": "దంత వైద్యుల దగ్గరకు చివరిసారి ఎప్పుడు వెళ్ళారు",
   "Loading": "లోడ్ అవుతోంది",
   "Location": "ప్రదేశం",
   "Look in the mouth (OHAT)": "నోటిలో చూడండి (OHAT)",
@@ -122,8 +122,8 @@ export default {
   "New visit": "కొత్త సందర్శన",
   "Next": "తరువాత",
   "Next screening due": "తదుపరి స్క్రీనింగ్ తేదీ",
-  "Next screening in": "తదుపరి స్క్రీనింగ్",
-  "No": "కాదు",
+  "Next screening in": "తదుపరి స్క్రీనింగ్ — ఇంత కాలం తర్వాత:",
+  "No": "లేదు",
   "No internet. You can keep recording visits; they will be sent when you are back online.": "ఇంటర్నెట్ లేదు. మీరు సందర్శనలను నమోదు చేస్తూనే ఉండవచ్చు; ఇంటర్నెట్ వచ్చినప్పుడు అవి పంపబడతాయి.",
   "No one enrolled yet. Start a home visit to add the first person.": "ఇంకా ఎవరూ నమోదు కాలేదు. మొదటి వ్యక్తిని చేర్చడానికి ఇంటి సందర్శన ప్రారంభించండి.",
   "No one matches that search.": "ఆ వెతుకులాటకు ఎవరూ సరిపోలలేదు.",
@@ -141,8 +141,8 @@ export default {
   "Now": "ఇప్పుడు",
   "OHAT: lower is healthier (0–16). GOHAI: higher is better (12–60).": "OHAT: తక్కువ ఉంటే ఆరోగ్యం మెరుగు (0–16). GOHAI: ఎక్కువ ఉంటే మెరుగు (12–60).",
   "Once a day": "రోజుకు ఒకసారి",
-  "One less": "ఒకటి తగ్గించు",
-  "One more": "ఒకటి పెంచు",
+  "One less": "ఒకటి తగ్గించండి",
+  "One more": "ఒకటి పెంచండి",
   "Open": "తెరవండి",
   "Open photo": "ఫోటో తెరవండి",
   "Opinions are advisory screening opinions, not a diagnosis or prescription.": "అభిప్రాయాలు స్క్రీనింగ్ ఆధారిత సలహాలు మాత్రమే, రోగ నిర్ధారణ లేదా మందుల చీటీ కాదు.",
@@ -152,7 +152,7 @@ export default {
   "Other": "ఇతర",
   "PIN changed": "PIN మార్చబడింది",
   "Painful / sore": "నొప్పిగా / పుండుగా ఉంది",
-  "Partial": "పాక్షిక",
+  "Partial": "కొన్ని పళ్ళకే (పాక్షిక)",
   "People": "వ్యక్తులు",
   "Person": "వ్యక్తి",
   "Phone": "ఫోన్",
@@ -205,7 +205,7 @@ export default {
   "Set your own PIN": "మీ సొంత PIN పెట్టుకోండి",
   "Sex": "లింగం",
   "Show to the person": "వ్యక్తికి చూపించండి",
-  "Show translations": "అనువాదాలు చూపించు",
+  "Show translations": "అనువాదాలు చూపించండి",
   "Sign in as someone else": "వేరొకరిగా సైన్ ఇన్ చేయండి",
   "Sign out": "సైన్ అవుట్",
   "Signed on paper form": "కాగితపు ఫారంపై సంతకం చేశారు",
@@ -213,7 +213,7 @@ export default {
   "Skipped": "దాటవేశారు",
   "Smoking (beedi, cigarette)": "పొగ తాగడం (బీడీ, సిగరెట్)",
   "Some visits have not been sent yet. They stay on this phone, locked with your PIN. Sign out anyway?": "కొన్ని సందర్శనలు ఇంకా పంపలేదు. అవి మీ PIN తో లాక్ అయి ఈ ఫోన్‌లోనే ఉంటాయి. అయినా సైన్ అవుట్ చేయాలా?",
-  "Someone helps": "ఎవరో సహాయం చేస్తారు",
+  "Someone helps": "వేరొకరు సహాయం చేస్తారు",
   "Sometimes": "అప్పుడప్పుడు",
   "Spoken, with a witness": "నోటి మాటతో, సాక్షి సమక్షంలో",
   "Start a home visit": "ఇంటి సందర్శన ప్రారంభించండి",
@@ -240,8 +240,8 @@ export default {
   "Translation not available": "అనువాదం అందుబాటులో లేదు",
   "Try again": "మళ్ళీ ప్రయత్నించండి",
   "Twice a day": "రోజుకు రెండుసార్లు",
-  "Type in English or Malayalam": "ఇంగ్లీష్ లేదా తెలుగులో టైప్ చేయండి",
-  "Type in Malayalam or English. The dentist sees exactly what you type, with a translation.": "తెలుగు లేదా ఇంగ్లీష్‌లో టైప్ చేయండి. మీరు టైప్ చేసింది యథాతథంగా, అనువాదంతో పాటు దంత వైద్యులకు కనిపిస్తుంది.",
+  "Type in English or your own language": "ఇంగ్లీష్ లేదా తెలుగులో టైప్ చేయండి",
+  "Type in your own language or English. The dentist sees exactly what you type, with a translation.": "తెలుగు లేదా ఇంగ్లీష్‌లో టైప్ చేయండి. మీరు టైప్ చేసింది యథాతథంగా, అనువాదంతో పాటు దంత వైద్యులకు కనిపిస్తుంది.",
   "Unlock": "అన్‌లాక్ చేయండి",
   "Update details or status": "వివరాలు లేదా స్థితిని నవీకరించండి",
   "Upper denture": "పై కట్టుడు పళ్ళు",
@@ -274,7 +274,7 @@ export default {
   "Witness name": "సాక్షి పేరు",
   "Yes": "అవును",
   "Yes, went": "అవును, వెళ్ళారు",
-  "You can type in Malayalam or English. To add a new photo, start a new visit for this person.": "మీరు తెలుగు లేదా ఇంగ్లీష్‌లో టైప్ చేయవచ్చు. కొత్త ఫోటో చేర్చాలంటే, ఈ వ్యక్తికి కొత్త సందర్శన ప్రారంభించండి.",
+  "You can type in your own language or English. To add a new photo, start a new visit for this person.": "మీరు తెలుగు లేదా ఇంగ్లీష్‌లో టైప్ చేయవచ్చు. కొత్త ఫోటో చేర్చాలంటే, ఈ వ్యక్తికి కొత్త సందర్శన ప్రారంభించండి.",
   "Your reply": "మీ జవాబు",
   "born": "జననం",
   "d ago": "రోజుల క్రితం",
@@ -334,7 +334,7 @@ export default {
   "Memory problems / dementia": "జ్ఞాపకశక్తి సమస్యలు / మతిమరుపు వ్యాధి (డిమెన్షియా)",
   "Difficulty swallowing or choking": "మింగడంలో ఇబ్బంది లేదా పొలమారడం",
   "Diabetes": "షుగర్ (మధుమేహం)",
-  "Stroke or paralysis": "పక్షవాతం",
+  "Stroke or paralysis": "స్ట్రోక్ / పక్షవాతం",
   "Cancer treatment now or before": "ఇప్పుడు లేదా గతంలో క్యాన్సర్ చికిత్స",
   "Lives alone": "ఒంటరిగా ఉంటారు",
   "Needs help to clean teeth or dentures": "పళ్ళు లేదా కట్టుడు పళ్ళు శుభ్రం చేసుకోవడానికి సహాయం కావాలి",
@@ -392,7 +392,7 @@ export default {
   "Name": "పేరు",
   "Area / registration": "ప్రాంతం / నమోదు",
   "PIN not set": "PIN పెట్టలేదు",
-  "inactive": "నిష్క్రియ",
+  "inactive": "చురుకుగా లేదు",
   "Edit": "మార్చండి",
   "Reset PIN": "PIN రీసెట్ చేయండి",
   "Edit user": "వినియోగదారుని మార్చండి",
@@ -508,7 +508,7 @@ export default {
   "Write in English or Malayalam. The field worker sees a translation into her language. Write plainly — it will be shown to the older person.": "ఇంగ్లీష్ లేదా మలయాళంలో రాయండి. ఆరోగ్య కార్యకర్తకు ఆమె భాషలోకి అనువాదం కనిపిస్తుంది. సరళంగా రాయండి — ఇది ఆ వృద్ధులకు చూపబడుతుంది.",
   "Cannot assess remotely — needs in-person examination": "దూరం నుండి అంచనా వేయలేము — నేరుగా పరీక్ష అవసరం",
   "What you think is going on, in plain words": "ఏం జరుగుతోందని మీరు అనుకుంటున్నారో, సరళమైన మాటల్లో",
-  "Findings (optional)": "కనుగొన్నవి (ఐచ్ఛికం)",
+  "Findings (optional)": "పరీక్షలో గమనించినవి (ఐచ్ఛికం)",
   "Clinical detail for the referral clinic": "రిఫరల్ క్లినిక్ కోసం క్లినికల్ వివరాలు",
   "Advice for the person and caregiver": "వ్యక్తికి మరియు సంరక్షకులకు సలహా",
   "Daily care, what to avoid, when to seek help": "రోజువారీ సంరక్షణ, ఏవి మానుకోవాలి, ఎప్పుడు సహాయం తీసుకోవాలి",
@@ -553,7 +553,7 @@ export default {
   "dentist": "దంత వైద్యులు",
   "admin": "నిర్వాహకులు",
   "auditor": "ఆడిటర్",
-  "dpo": "డేటా రక్షణ అధికారి",
+  "dpo": "డేటా రక్షణ బాధ్యులు",
   "researcher": "పరిశోధకులు",
   "Local bodies (LSGDs)": "స్థానిక సంస్థలు (LSGDs)",
   "Type (e.g. Dental college, District hospital, PHC, Private)": "రకం (ఉదా. డెంటల్ కాలేజీ, జిల్లా ఆసుపత్రి, PHC, ప్రైవేట్)",
@@ -591,9 +591,9 @@ export default {
   "Question to worker": "కార్యకర్తకు ప్రశ్న",
   "training": "శిక్షణ",
   "pictogram": "చిత్ర సంకేతం",
-  "PIN code": "PIN కోడ్",
-  "PIN code (optional)": "PIN కోడ్ (ఐచ్ఛికం)",
-  "6-digit PIN code": "6-అంకెల PIN కోడ్",
+  "PIN code": "పోస్టల్ PIN కోడ్",
+  "Postal PIN code (optional)": "పోస్టల్ PIN కోడ్ (ఐచ్ఛికం)",
+  "6-digit PIN code": "6 అంకెల పోస్టల్ PIN కోడ్",
   "Choose your language": "మీ భాషను ఎంచుకోండి",
   "Village Panchayat": "గ్రామ పంచాయతీ",
   "Town Panchayat": "పట్టణ పంచాయతీ",
@@ -607,23 +607,23 @@ export default {
   "Forgot your PIN? Ask your coordinator to reset it.": "PIN మర్చిపోయారా? దాన్ని రీసెట్ చేయమని మీ సమన్వయకర్తను అడగండి.",
   "A project of Community Innovation Foundation with the Association of Geriatric Dentistry (AGeD).": "Association of Geriatric Dentistry (AGeD) తో కలిసి Community Innovation Foundation నిర్వహిస్తున్న ఒక ప్రాజెక్ట్.",
   "You need internet to sign in.": "సైన్ ఇన్ చేయడానికి ఇంటర్నెట్ అవసరం.",
-  "PIN code must be 6 digits": "పోస్టల్ PIN కోడ్ 6 అంకెలు ఉండాలి",
+  "Postal PIN code must be 6 digits": "పోస్టల్ PIN కోడ్ 6 అంకెలు ఉండాలి",
   "List": "జాబితా",
-  "Please see a dentist in person": "దయచేసి దంత వైద్యుడిని నేరుగా కలవండి",
-  "Consent record": "అంగీకార రికార్డు",
+  "Please see a dentist in person": "దయచేసి దంత వైద్యులను నేరుగా కలవండి",
+  "Consent record": "సమ్మతి రికార్డు",
   "Name of the person": "వ్యక్తి పేరు",
-  "I have read or heard this notice and understood it. I agree to:": "ఈ సూచన పత్రాన్ని నేను చదివాను లేదా విన్నాను, అర్థం చేసుకున్నాను. నేను వీటికి అంగీకరిస్తున్నాను:",
+  "I have read or heard this notice and understood it. I agree to:": "ఈ నోటీసును నేను చదివాను లేదా విన్నాను, అర్థం చేసుకున్నాను. నేను వీటికి అంగీకరిస్తున్నాను:",
   "Signature / thumb impression": "సంతకం / వేలిముద్ర",
   "Witness (name and signature)": "సాక్షి (పేరు మరియు సంతకం)",
   "If the person cannot decide for themselves — person deciding": "వ్యక్తి తమంతట తాము నిర్ణయించుకోలేకపోతే — నిర్ణయం తీసుకునే వ్యక్తి",
   "Name, relationship": "పేరు, సంబంధం",
   "Health worker (name and signature)": "ఆరోగ్య కార్యకర్త (పేరు మరియు సంతకం)",
-  "A copy of this notice was given / offered to the person": "ఈ సూచన పత్రం యొక్క ఒక కాపీని వ్యక్తికి ఇవ్వడమైనది / ఇవ్వజూపడమైనది",
+  "A copy of this notice was given / offered to the person": "ఈ నోటీసు కాపీని ఆ వ్యక్తికి ఇచ్చాం / ఇవ్వజూపాం",
   "Version": "వెర్షన్",
-  "Include consent form": "అంగీకార పత్రాన్ని చేర్చండి",
+  "Include consent form": "సమ్మతి పత్రాన్ని చేర్చండి",
   "Print / Save PDF": "ప్రింట్ / PDF గా సేవ్ చేయండి",
-  "Translation of the approved English notice. If there is any difference, the English text prevails.": "ఆమోదించిన ఇంగ్లీష్ సూచన పత్రానికి అనువాదం. ఏదైనా తేడా ఉంటే, ఇంగ్లీష్ పాఠమే చెల్లుతుంది.",
-  "Write in English or your own language. The field worker sees a translation into her language. Write plainly — it will be shown to the older person.": "ఇంగ్లీష్‌లో లేదా మీ సొంత భాషలో రాయండి. క్షేత్ర కార్యకర్త తన భాషలో అనువాదాన్ని చూస్తారు. సరళంగా రాయండి — ఇది వృద్ధులకు చూపించబడుతుంది."
+  "Translation of the approved English notice. If there is any difference, the English text prevails.": "ఆమోదించిన ఇంగ్లీష్ నోటీసుకు ఇది అనువాదం. ఏదైనా తేడా ఉంటే, ఇంగ్లీష్ పాఠమే చెల్లుతుంది.",
+  "Write in English or your own language. The field worker sees a translation into her language. Write plainly — it will be shown to the older person.": "ఇంగ్లీష్‌లో లేదా మీ సొంత భాషలో రాయండి. ఆరోగ్య కార్యకర్తకు ఆమె భాషలోకి అనువాదం కనిపిస్తుంది. సరళంగా రాయండి — ఇది ఆ వృద్ధులకు చూపబడుతుంది."
  },
  "clinical": {
   "Lips": "పెదవులు",
@@ -669,7 +669,7 @@ export default {
   "Been worried or concerned about problems with your teeth, gums or dentures?": "మీ పళ్ళు, చిగుళ్ళు లేదా కట్టుడు పళ్ళ సమస్యల గురించి ఆందోళన లేదా దిగులు చెందారా?",
   "Felt nervous or self-conscious because of problems with your teeth, gums or dentures?": "మీ పళ్ళు, చిగుళ్ళు లేదా కట్టుడు పళ్ళ సమస్యల వల్ల భయంగా లేదా సిగ్గుగా అనిపించిందా?",
   "Felt uncomfortable eating in front of people because of problems with your teeth or dentures?": "మీ పళ్ళు లేదా కట్టుడు పళ్ళ సమస్యల వల్ల ఇతరుల ముందు తినడానికి ఇబ్బందిగా అనిపించిందా?",
-  "Had your teeth or gums sensitive to hot, cold or sweets?": "మీ పళ్ళు లేదా చిగుళ్ళు వేడికి, చల్లకి లేదా తీపికి జివ్వుమన్నాయా?",
+  "Found your teeth or gums sensitive to hot, cold or sweets?": "మీ పళ్ళు లేదా చిగుళ్ళు వేడికి, చల్లకి లేదా తీపికి జివ్వుమన్నాయా?",
   "Always": "ఎల్లప్పుడూ",
   "Often": "తరచుగా",
   "Sometimes": "అప్పుడప్పుడు",
@@ -695,14 +695,14 @@ export default {
   "Swelling of face or neck, or fever with tooth pain": "ముఖం లేదా మెడ వాపు, లేదా పంటి నొప్పితో జ్వరం",
   "Possible spreading infection. Take the person to a hospital TODAY. If there is difficulty breathing or swallowing, treat as an emergency.": "ఇన్ఫెక్షన్ వ్యాపిస్తూ ఉండవచ్చు. ఆ వ్యక్తిని ఈ రోజే ఆసుపత్రికి తీసుకెళ్ళండి. శ్వాస తీసుకోవడంలో లేదా మింగడంలో ఇబ్బంది ఉంటే, అత్యవసర పరిస్థితిగా భావించండి.",
   "Bleeding from the mouth that does not stop": "ఆగకుండా నోటి నుండి రక్తం కారడం",
-  "Apply firm pressure with clean gauze for 15 minutes. If it continues, or the person takes blood thinners, go to a hospital TODAY.": "శుభ్రమైన గాజు గుడ్డ (గాజ్) తో 15 నిమిషాలు గట్టిగా నొక్కి పెట్టండి. అయినా ఆగకపోతే, లేదా ఆ వ్యక్తి రక్తం పలుచబడే మందులు వాడుతుంటే, ఈ రోజే ఆసుపత్రికి వెళ్ళండి.",
+  "Apply firm pressure with clean gauze for 15 minutes. If it continues, or the person takes blood thinners, go to a hospital TODAY.": "శుభ్రమైన గాజ్ గుడ్డ (కట్టు కట్టే గుడ్డ) తో 15 నిమిషాలు గట్టిగా నొక్కి పెట్టండి. అయినా ఆగకపోతే, లేదా ఆ వ్యక్తి రక్తం పలుచబడే మందులు వాడుతుంటే, ఈ రోజే ఆసుపత్రికి వెళ్ళండి.",
   "Recent injury to mouth, teeth or jaw": "ఇటీవల నోటికి, పళ్ళకు లేదా దవడకు దెబ్బ",
   "After a fall, check for other injuries first. Arrange dental or hospital review within 24 hours.": "కింద పడిన తర్వాత అయితే, ముందుగా ఇతర గాయాలు ఉన్నాయేమో చూడండి. 24 గంటల లోపు దంత వైద్యుల లేదా ఆసుపత్రి పరీక్ష ఏర్పాటు చేయండి.",
   "Unable to eat or drink because of mouth problem": "నోటి సమస్య వల్ల తినలేకపోవడం లేదా తాగలేకపోవడం",
   "Risk of dehydration and malnutrition. Offer soft food and fluids; inform the family doctor or PHC today.": "ఒంట్లో నీరు తగ్గిపోవడం, పోషకాహార లోపం వచ్చే ప్రమాదం. మెత్తటి ఆహారం, ద్రవాలు ఇవ్వండి; ఈ రోజే కుటుంబ డాక్టర్‌కు లేదా PHC కి తెలియజేయండి.",
   "May cause dry mouth": "నోరు ఎండిపోయేలా చేయవచ్చు",
   "Bleeding risk (anticoagulant/antiplatelet)": "రక్తస్రావం ప్రమాదం (రక్తం పలుచబడే మందులు — anticoagulant/antiplatelet)",
-  "May cause gum overgrowth": "చిగుళ్ళు పెరిగేలా చేయవచ్చు",
+  "May cause gum overgrowth": "చిగుళ్ళు అతిగా పెరిగేలా (ఉబ్బేలా) చేయవచ్చు",
   "Jaw osteonecrosis risk (bisphosphonate/denosumab)": "దవడ ఎముక దెబ్బతినే (ఆస్టియోనెక్రోసిస్) ప్రమాదం (bisphosphonate/denosumab)",
   "Steroid or immunosuppressant — infection/thrush risk": "స్టెరాయిడ్ లేదా రోగనిరోధక శక్తిని తగ్గించే మందు — ఇన్ఫెక్షన్/నోటి ఫంగస్ (థ్రష్) ప్రమాదం",
   "Front — teeth together, lips apart": "ముందు భాగం — పళ్ళు కలిపి, పెదవులు దూరంగా",
@@ -725,7 +725,7 @@ export default {
   "Other": "ఇతర",
   "Person lives in a different LSGD/ward from mine": "ఆ వ్యక్తి నా LSGD/వార్డు కాకుండా వేరే దానిలో ఉంటారు",
   "Temporary stay with family": "కుటుంబంతో తాత్కాలికంగా ఉంటున్నారు",
-  "Seen at a camp, care home or institution": "క్యాంపులో, వృద్ధాశ్రమంలో లేదా సంస్థలో చూశాం",
+  "Seen at a camp, care home or institution": "క్యాంపులో, వృద్ధాశ్రమంలో లేదా సంస్థలో చూశాను",
   "Covering a colleague's area": "సహోద్యోగి ప్రాంతాన్ని చూసుకుంటున్నాను",
   "Other (explain in address)": "ఇతర (చిరునామాలో వివరించండి)"
  },
@@ -744,7 +744,7 @@ export default {
     "• సంరక్షకుల పేరు, సంబంధం మరియు ఫోన్ (ఉంటే)",
     "• మీ నోరు, పళ్ళు మరియు కట్టుడు పళ్ళ పరిస్థితి; ఆరోగ్య సమస్యలు; మీరు వాడే మందులు; పొగాకు, వక్క, మద్యం వంటి అలవాట్లు",
     "• మీరు అంగీకరిస్తేనే: మీ నోటి లోపలి ఫోటోలు (మీ ముఖం ఉండదు)",
-    "• దంత వైద్యుల అభిప్రాయం, ఏదైనా రిఫరల్, మరియు మీరు చికిత్సకు చేరుకున్నారా లేదా అనేది",
+    "• దంత వైద్యుల అభిప్రాయం, ఏదైనా రిఫరల్, మరియు మీకు చికిత్స అందిందా లేదా అనేది",
     "• మీరు అడిగితేనే: మీ ABHA నంబర్"
    ]
   },
@@ -770,7 +770,7 @@ export default {
    ]
   },
   {
-   "h": "ఇది ఏది కాదు",
+   "h": "ఇది ఏమి కాదు",
    "p": [
     "ఇది ఫోటోలు మరియు ప్రశ్నల ఆధారంగా ఇచ్చే సలహా. ఇది పూర్తి దంత పరీక్ష, చికిత్స లేదా మందుల చీటీ కాదు. ఇది అత్యవసర సేవ కాదు — ముఖం వాపు, శ్వాస తీసుకోవడంలో ఇబ్బంది లేదా ఆగని రక్తస్రావం ఉంటే, వెంటనే ఆసుపత్రికి వెళ్ళండి."
    ]
@@ -786,7 +786,7 @@ export default {
    "p": [
     "• మీరు సమ్మతి ఇచ్చినంత సులభంగానే, ఎప్పుడైనా దానిని ఉపసంహరించుకోవచ్చు — ఆరోగ్య కార్యకర్తకు చెప్పండి లేదా కింది నంబర్‌కు ఫోన్ చేయండి. అప్పుడు మేము మీ సమాచారాన్ని వాడడం ఆపేస్తాము; పేర్లు లేకుండా ఇప్పటికే చేసిన లెక్కలను మాత్రం వెనక్కి తీసుకోలేము.",
     "• మీ సమాచారం సారాంశాన్ని అడగవచ్చు, తప్పులను సరిచేయించుకోవచ్చు, దానిని తొలగించమని మమ్మల్ని అడగవచ్చు.",
-    "• మీరు అశక్తులైతే, లేదా మీ మరణం తర్వాత, మీ తరఫున ఈ హక్కులను వాడడానికి ఒకరిని మీరు నియమించవచ్చు.",
+    "• మీరు స్వయంగా చేయలేని స్థితికి వస్తే, లేదా మీ మరణం తర్వాత, మీ తరఫున ఈ హక్కులను వాడడానికి మీరు ఒకరిని నామినేట్ చేయవచ్చు (పేరు చెప్పవచ్చు).",
     "• ఫిర్యాదులు: {gName}, ఫోన్ {gPhone}, ఈమెయిల్ {gEmail}. మేము {days} రోజుల లోపు జవాబు ఇస్తాము.",
     "• మా జవాబుతో మీకు తృప్తి లేకపోతే, మీరు Data Protection Board of India (భారత డేటా రక్షణ బోర్డు) కు ఫిర్యాదు చేయవచ్చు."
    ]
@@ -801,23 +801,23 @@ export default {
  "layers": {
   "care": [
    "స్క్రీనింగ్ మరియు దంత వైద్యుల అభిప్రాయం",
-   "పాల్గొనడానికి తప్పనిసరి. పైన ఉన్న 1–4 ప్రయోజనాలు ఇందులో ఉంటాయి."
+   "పాల్గొనడానికి తప్పనిసరి. పైన చెప్పిన 1–4 ఉద్దేశాలు ఇందులో ఉంటాయి."
   ],
   "photos": [
    "నా నోటి లోపలి ఫోటోలు",
-   "ఐచ్ఛికం. దంత వైద్యులకు సహాయపడుతుంది. ముఖం ఉండదు."
+   "మీ ఇష్టం (తప్పనిసరి కాదు). దంత వైద్యులకు సహాయపడుతుంది. ముఖం ఉండదు."
   ],
   "research": [
    "ఆమోదించిన పరిశోధన కోసం నా కోడ్ చేసిన సమాచారం వాడకం",
-   "ఐచ్ఛికం. పేరు, ఫోన్, చిరునామా తీసివేసి వాటి స్థానంలో ఒక కోడ్ పెడతారు."
+   "మీ ఇష్టం (తప్పనిసరి కాదు). పేరు, ఫోన్, చిరునామా తీసివేసి వాటి స్థానంలో ఒక కోడ్ పెడతారు."
   ],
   "messaging": [
    "నా సందర్శనల గురించి SMS లేదా WhatsApp సందేశాలు",
-   "ఐచ్ఛికం. గుర్తుచేసే సందేశాలు మరియు నా రిపోర్ట్ లింక్."
+   "మీ ఇష్టం (తప్పనిసరి కాదు). గుర్తుచేసే సందేశాలు మరియు నా రిపోర్ట్ లింక్."
   ],
   "abha": [
    "నా ABHA ఆరోగ్య ID తో అనుసంధానం",
-   "ఐచ్ఛికం."
+   "మీ ఇష్టం (తప్పనిసరి కాదు)."
   ]
  },
  "deciders": {

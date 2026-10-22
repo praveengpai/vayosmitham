@@ -161,7 +161,7 @@ function UserForm({ u, onDone }) {
         <${Field} label=${t('LSGD type')}><select value=${f.lsgd_type} onChange=${set('lsgd_type')}><option value="">—</option>${LSGD_TYPES.map(x => html`<option value=${x.key}>${L(x)}</option>`)}</select><//>
         <${Field} label=${t('LSGD name')}><input type="text" list="u-lsgd" value=${f.lsgd_name} onInput=${set('lsgd_name')} /><datalist id="u-lsgd">${lsgds.map(l => html`<option value=${l.name} />`)}</datalist><//>
         <${Field} label=${t('Ward')}><input type="text" value=${f.ward} onInput=${set('ward')} /><//></div>
-        <${Field} label=${t('PIN code (optional)')}><input type="text" inputmode="numeric" maxlength="6" style="max-width:160px" value=${f.pincode} onInput=${set('pincode')} /><//>
+        <${Field} label=${t('Postal PIN code (optional)')}><input type="text" inputmode="numeric" maxlength="6" style="max-width:160px" value=${f.pincode} onInput=${set('pincode')} /><//>
         <${Field} label=${t('Reads and writes in')}><select value=${f.content_lang} onChange=${set('content_lang')}>${LANGUAGES.map(l => html`<option value=${l.code}>${l.native}</option>`)}</select><//>`}`}
     ${f.role === 'dentist' && html`<div class="grid-2"><${Field} label=${t('Dental council')}><input type="text" value=${f.reg_council} onInput=${set('reg_council')} /><//>
       <${Field} label=${t('Registration number')}><input type="text" value=${f.reg_number} onInput=${set('reg_number')} /><//></div>
