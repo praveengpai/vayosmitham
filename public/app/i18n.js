@@ -1,6 +1,6 @@
 // Malayalam interface strings. Keys are the English text shown in the app.
 // Any string missing here appears in English. Wording to be reviewed by CIF field staff before go-live.
-export const ML = {
+export const ML_BASE = {
   '1–3 years': '1–3 വർഷം',
   '6 digits. Not 111111 or 123456.': '6 അക്കം. 111111, 123456 പോലുള്ളവ പാടില്ല.',
   'About the person': 'വ്യക്തിയെക്കുറിച്ച്',
@@ -348,3 +348,11 @@ export const ML = {
   'Waiting for appointment': 'അപ്പോയിന്റ്മെന്റിനായി കാത്തിരിക്കുന്നു',
   'Use this person ': 'ഈ വ്യക്തിയെ തിരഞ്ഞെടുക്കുക',
 };
+
+// Language packs: /app/lang/<code>.js export { ui, clinical, notice, layers, deciders }.
+export const DICTS = {};
+export async function loadLang(code) {
+  if (!code || code === 'en' || DICTS[code]) return DICTS[code] || null;
+  try { DICTS[code] = (await import(`/app/lang/${code}.js`)).default; } catch (e) { console.warn('language pack missing', code, e); DICTS[code] = { ui: {}, clinical: {} }; }
+  return DICTS[code];
+}

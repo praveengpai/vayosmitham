@@ -2,6 +2,7 @@
 import { HttpError, json, body, str, oneOf, audit, parseJSON } from './util.js';
 import { login, logout, currentUser, publicUser, hashPin, validPin, requireRole } from './auth.js';
 import { translate, glossaryHits } from './translate.js';
+import { LANG_CODES, UI_LANGUAGES } from '../public/shared/clinical.js';
 import { getMedia } from './media.js';
 import * as field from './field.js';
 import * as dentist from './dentist.js';
@@ -166,9 +167,9 @@ async function verifyPin(env, req, user) {
 async function savePrefs(env, req, user) {
   if (!user) throw new HttpError(401, 'Please sign in');
   const b = await body(req);
-  const langs = ['en', 'ml', 'ta', 'kn', 'te', 'hi'];
+  const langs = LANG_CODES;
   await env.IDENTITY.prepare('UPDATE users SET ui_lang = ?, content_lang = ?, translate_on = ? WHERE id = ?')
-    .bind(oneOf(b.ui_lang, ['en', 'ml'], user.ui_lang), oneOf(b.content_lang, langs, user.content_lang), b.translate_on == null ? user.translate_on : (b.translate_on ? 1 : 0), user.id).run();
+    .bind(oneOf(b.ui_lang, UI_LANGUAGES, user.ui_lang), oneOf(b.content_lang, langs, user.content_lang), b.translate_on == null ? user.translate_on : (b.translate_on ? 1 : 0), user.id).run();
   return json({ ok: true });
 }
 

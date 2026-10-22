@@ -177,10 +177,32 @@ export const REFERRAL_TYPES = [
   { key: 'domiciliary', en: 'Home-based dental visit (bedbound)', ml: 'വീട്ടിലെത്തിയുള്ള ദന്ത പരിശോധന' },
 ];
 
-export const STATES = ['Kerala','Tamil Nadu','Karnataka','Andhra Pradesh','Telangana','Puducherry','Goa','Maharashtra','Other'];
-export const KERALA_DISTRICTS = ['Thiruvananthapuram','Kollam','Pathanamthitta','Alappuzha','Kottayam','Idukki','Ernakulam','Thrissur','Palakkad','Malappuram','Kozhikode','Wayanad','Kannur','Kasaragod'];
+export const STATES = ['Kerala', 'Tamil Nadu', 'Karnataka', 'Andhra Pradesh', 'Telangana', 'Maharashtra', 'Puducherry', 'Goa', 'Other'];
+export const DISTRICTS = {
+  'Kerala': ['Thiruvananthapuram', 'Kollam', 'Pathanamthitta', 'Alappuzha', 'Kottayam', 'Idukki', 'Ernakulam', 'Thrissur', 'Palakkad', 'Malappuram', 'Kozhikode', 'Wayanad', 'Kannur', 'Kasaragod'],
+  'Tamil Nadu': ['Ariyalur', 'Chengalpattu', 'Chennai', 'Coimbatore', 'Cuddalore', 'Dharmapuri', 'Dindigul', 'Erode', 'Kallakurichi', 'Kancheepuram', 'Kanniyakumari', 'Karur',
+    'Krishnagiri', 'Madurai', 'Mayiladuthurai', 'Nagapattinam', 'Namakkal', 'Nilgiris', 'Perambalur', 'Pudukkottai', 'Ramanathapuram', 'Ranipet', 'Salem', 'Sivaganga', 'Tenkasi',
+    'Thanjavur', 'Theni', 'Thoothukudi', 'Tiruchirappalli', 'Tirunelveli', 'Tirupathur', 'Tiruppur', 'Tiruvallur', 'Tiruvannamalai', 'Tiruvarur', 'Vellore', 'Viluppuram', 'Virudhunagar'],
+  'Karnataka': ['Bagalkote', 'Ballari', 'Belagavi', 'Bengaluru Rural', 'Bengaluru Urban', 'Bengaluru South (Ramanagara)', 'Bidar', 'Chamarajanagar', 'Chikkaballapura', 'Chikkamagaluru',
+    'Chitradurga', 'Dakshina Kannada', 'Davanagere', 'Dharwad', 'Gadag', 'Hassan', 'Haveri', 'Kalaburagi', 'Kodagu', 'Kolar', 'Koppal', 'Mandya', 'Mysuru', 'Raichur', 'Shivamogga',
+    'Tumakuru', 'Udupi', 'Uttara Kannada', 'Vijayanagara', 'Vijayapura', 'Yadgir'],
+  'Andhra Pradesh': ['Alluri Sitharama Raju', 'Anakapalli', 'Anantapur', 'Annamayya', 'Bapatla', 'Chittoor', 'Dr. B.R. Ambedkar Konaseema', 'East Godavari', 'Eluru', 'Guntur',
+    'Kakinada', 'Krishna', 'Kurnool', 'Nandyal', 'NTR', 'Palnadu', 'Parvathipuram Manyam', 'Prakasam', 'Sri Potti Sriramulu Nellore', 'Sri Sathya Sai', 'Srikakulam', 'Tirupati',
+    'Visakhapatnam', 'Vizianagaram', 'West Godavari', 'YSR Kadapa'],
+  'Telangana': ['Adilabad', 'Bhadradri Kothagudem', 'Hanumakonda', 'Hyderabad', 'Jagtial', 'Jangaon', 'Jayashankar Bhupalpally', 'Jogulamba Gadwal', 'Kamareddy', 'Karimnagar',
+    'Khammam', 'Kumuram Bheem Asifabad', 'Mahabubabad', 'Mahabubnagar', 'Mancherial', 'Medak', 'Medchal-Malkajgiri', 'Mulugu', 'Nagarkurnool', 'Nalgonda', 'Narayanpet', 'Nirmal',
+    'Nizamabad', 'Peddapalli', 'Rajanna Sircilla', 'Rangareddy', 'Sangareddy', 'Siddipet', 'Suryapet', 'Vikarabad', 'Wanaparthy', 'Warangal', 'Yadadri Bhuvanagiri'],
+  'Maharashtra': ['Ahilyanagar (Ahmednagar)', 'Akola', 'Amravati', 'Beed', 'Bhandara', 'Buldhana', 'Chandrapur', 'Chhatrapati Sambhajinagar (Aurangabad)', 'Dharashiv (Osmanabad)',
+    'Dhule', 'Gadchiroli', 'Gondia', 'Hingoli', 'Jalgaon', 'Jalna', 'Kolhapur', 'Latur', 'Mumbai City', 'Mumbai Suburban', 'Nagpur', 'Nanded', 'Nandurbar', 'Nashik', 'Palghar',
+    'Parbhani', 'Pune', 'Raigad', 'Ratnagiri', 'Sangli', 'Satara', 'Sindhudurg', 'Solapur', 'Thane', 'Wardha', 'Washim', 'Yavatmal'],
+};
+export const KERALA_DISTRICTS = DISTRICTS.Kerala;
+export const ALL_DISTRICTS = Object.values(DISTRICTS).flat().sort();
+export const validPincode = p => /^[1-9]\d{5}$/.test(String(p || '').trim());
 export const LSGD_TYPES = [
   { key: 'grama_panchayat', en: 'Grama Panchayat', ml: 'ഗ്രാമപഞ്ചായത്ത്' },
+  { key: 'town_panchayat', en: 'Town Panchayat', ml: 'ടൗൺ പഞ്ചായത്ത്' },
+  { key: 'nagar_panchayat', en: 'Nagar Panchayat', ml: 'നഗർ പഞ്ചായത്ത്' },
   { key: 'municipality', en: 'Municipality', ml: 'മുനിസിപ്പാലിറ്റി' },
   { key: 'corporation', en: 'Municipal Corporation', ml: 'കോർപ്പറേഷൻ' },
   { key: 'other', en: 'Other', ml: 'മറ്റുള്ളവ' },
@@ -194,7 +216,7 @@ export const LOCATION_OVERRIDE_REASONS = [
 ];
 
 // Detect language from Unicode script. Returns an ISO 639-1 code.
-export function detectLang(text) {
+export function detectLang(text, hint) {
   const s = String(text || '');
   const counts = {};
   const ranges = [
@@ -210,6 +232,7 @@ export function detectLang(text) {
   }
   let best = null, n = 0;
   for (const [k, v] of Object.entries(counts)) if (v > n) { best = k; n = v; }
+  if (best === 'hi' && hint === 'mr') best = 'mr'; // Marathi and Hindi share the Devanagari script
   if (best && n >= latin * 0.3) return best;
   return latin ? 'en' : (best || 'en');
 }
@@ -221,4 +244,9 @@ export const LANGUAGES = [
   { code: 'kn', name: 'Kannada', native: 'ಕನ್ನಡ' },
   { code: 'te', name: 'Telugu', native: 'తెలుగు' },
   { code: 'hi', name: 'Hindi', native: 'हिन्दी' },
+  { code: 'mr', name: 'Marathi', native: 'मराठी' },
 ];
+
+// Interface languages offered on the sign-in page (English is the default).
+export const UI_LANGUAGES = ['en', 'ml', 'ta', 'kn', 'te', 'hi', 'mr'];
+export const LANG_CODES = LANGUAGES.map(l => l.code);

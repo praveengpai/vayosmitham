@@ -3,7 +3,7 @@ import { HttpError, json, body, personId, caseId, uid, str, int, oneOf, parseJSO
 import { requireRole } from './auth.js';
 import { putMedia, cleanJpeg } from './media.js';
 import { KNOWN_VERSIONS } from '../public/shared/consent.js';
-import { triage, flagMedicines, ohatTotal, gohaiTotal, ageBand, OHAT_ITEMS, COMPLAINTS, PHOTO_VIEWS, LOCATION_OVERRIDE_REASONS, LSGD_TYPES, detectLang } from '../public/shared/clinical.js';
+import { triage, flagMedicines, ohatTotal, gohaiTotal, ageBand, OHAT_ITEMS, COMPLAINTS, PHOTO_VIEWS, LOCATION_OVERRIDE_REASONS, LSGD_TYPES, detectLang, LANG_CODES, validPincode } from '../public/shared/clinical.js';
 
 const FIELD_ROLES = ['worker', 'coordinator', 'admin'];
 
@@ -78,7 +78,10 @@ function cleanPerson(p, user) {
     reason = oneOf(p.location_override_reason, LOCATION_OVERRIDE_REASONS.map(r => r.key));
     if (!reason) throw new HttpError(400, 'Please choose why the location differs from your own area');
   }
+  const pincode = str(p.pincode, 6);
+  if (pincode && !validPincode(pincode)) throw new HttpError(400, 'PIN code must be 6 digits');
   return {
+    pincode,
     name, sex, birth_year: int(p.birth_year, 1900, new Date().getFullYear()),
     phone: str(p.phone, 15), address: str(p.address, 300), ...loc, location_override_reason: reason,
     abha: str(p.abha, 20), caregiver_name: str(p.caregiver_name, 120), caregiver_phone: str(p.caregiver_phone, 15), caregiver_relation: str(p.caregiver_relation, 40),
@@ -107,8 +110,8 @@ export async function submitVisit(env, req, user) {
       const data = cleanPerson(b.person || {}, user);
       const id = personId();
       stmts.push(env.IDENTITY.prepare(
-        `INSERT INTO persons (id, client_uuid, name, sex, birth_year, phone, address, state, district, lsgd_type, lsgd_name, ward, location_override_reason, abha, caregiver_name, caregiver_phone, caregiver_relation, worker_id)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(id, pUuid, data.name, data.sex, data.birth_year, data.phone, data.address, data.state, data.district,
+        `INSERT INTO persons (id, client_uuid, name, sex, birth_year, phone, address, pincode, state, district, lsgd_type, lsgd_name, ward, location_override_reason, abha, caregiver_name, caregiver_phone, caregiver_relation, worker_id)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(id, pUuid, data.name, data.sex, data.birth_year, data.phone, data.address, data.pincode, data.state, data.district,
         data.lsgd_type, data.lsgd_name, data.ward, data.location_override_reason, data.abha, data.caregiver_name, data.caregiver_phone, data.caregiver_relation, user.id));
       person = { id, ...data, worker_id: user.id, status: 'active' };
     }
@@ -135,7 +138,7 @@ export async function submitVisit(env, req, user) {
     stmts.push(env.IDENTITY.prepare(
       `INSERT INTO consents (id, person_id, layer, granted, method, witness_name, capacity, assent_by, assent_relation, decider_type, copy_offered, notice_version, notice_language, recorded_by)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(uid('CN-'), person.id, layer, c.granted ? 1 : 0, method, str(c.witness_name, 120), capacity,
-      str(c.assent_by, 120), str(c.assent_relation, 40), deciderType, c.copy_offered ? 1 : 0, noticeVersion, oneOf(c.notice_language, ['en', 'ml', 'ta', 'kn', 'te', 'hi'], 'ml'), user.id));
+      str(c.assent_by, 120), str(c.assent_relation, 40), deciderType, c.copy_offered ? 1 : 0, noticeVersion, oneOf(c.notice_language, LANG_CODES, 'en'), user.id));
   }
   if (stmts.length) await env.IDENTITY.batch(stmts);
 
@@ -169,9 +172,9 @@ export async function submitVisit(env, req, user) {
         complaints, complaint_text, complaint_lang, risks, context, medicines, medicine_flags, worker_notes, worker_notes_lang)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(cid, JSON.stringify(ohat), ohatTotal(ohat), gohai ? JSON.stringify(gohai) : null, gTotal,
       teeth, teeth == null ? null : (teeth >= 20 ? 1 : 0), oneOf(s.denture_upper, ['none', 'complete', 'partial'], null), oneOf(s.denture_lower, ['none', 'complete', 'partial'], null),
-      oneOf(s.denture_fit, ['good', 'loose', 'painful', 'broken', 'not_worn'], null), JSON.stringify(complaints), complaintText, complaintText ? detectLang(complaintText) : null,
+      oneOf(s.denture_fit, ['good', 'loose', 'painful', 'broken', 'not_worn'], null), JSON.stringify(complaints), complaintText, complaintText ? detectLang(complaintText, user.content_lang) : null,
       JSON.stringify(sanitizeRisks(s.risks)), JSON.stringify(sanitizeContext(ctx)), JSON.stringify(medicines), JSON.stringify(flagMedicines(medicines)),
-      notes, notes ? detectLang(notes) : null),
+      notes, notes ? detectLang(notes, user.content_lang) : null),
     env.CLINICAL.prepare("UPDATE followups SET status='done', done_case_id=? WHERE person_id=? AND status='due' AND due_date <= date('now', '+30 day')").bind(cid, person.id),
   ]);
   await audit(env, user, 'case.submit', 'case', cid, { person: person.id, urgency });
@@ -242,8 +245,8 @@ export async function updatePerson(env, req, user, pid) {
   const b = await body(req);
   const status = oneOf(b.status, ['active', 'died', 'migrated', 'withdrawn', 'lost'], p.status);
   await env.IDENTITY.prepare(
-    `UPDATE persons SET phone = ?, address = ?, caregiver_name = ?, caregiver_phone = ?, caregiver_relation = ?, status = ?, status_reason = ?, updated_at = datetime('now') WHERE id = ?`)
-    .bind(str(b.phone, 15) ?? p.phone, str(b.address, 300) ?? p.address, str(b.caregiver_name, 120) ?? p.caregiver_name, str(b.caregiver_phone, 15) ?? p.caregiver_phone,
+    `UPDATE persons SET pincode = ?, phone = ?, address = ?, caregiver_name = ?, caregiver_phone = ?, caregiver_relation = ?, status = ?, status_reason = ?, updated_at = datetime('now') WHERE id = ?`)
+    .bind(b.pincode !== undefined ? (validPincode(b.pincode) ? String(b.pincode).trim() : null) : p.pincode, str(b.phone, 15) ?? p.phone, str(b.address, 300) ?? p.address, str(b.caregiver_name, 120) ?? p.caregiver_name, str(b.caregiver_phone, 15) ?? p.caregiver_phone,
       str(b.caregiver_relation, 40) ?? p.caregiver_relation, status, str(b.status_reason, 200) ?? p.status_reason, pid).run();
   if (status !== 'active') await env.CLINICAL.prepare("UPDATE followups SET status='cancelled' WHERE person_id = ? AND status='due'").bind(pid).run();
   await audit(env, user, 'person.update', 'person', pid, { status });
@@ -344,7 +347,7 @@ export async function respondInfo(env, req, user, cid) {
   if (!response) throw new HttpError(400, 'Please write a reply');
   await env.CLINICAL.batch([
     env.CLINICAL.prepare("UPDATE info_requests SET response = ?, response_lang = ?, resolved_at = datetime('now') WHERE case_id = ? AND resolved_at IS NULL")
-      .bind(response, detectLang(response), cid),
+      .bind(response, detectLang(response, user.content_lang), cid),
     env.CLINICAL.prepare("UPDATE cases SET status = 'submitted', claimed_by = NULL, claim_expires = NULL WHERE id = ?").bind(cid),
   ]);
   await audit(env, user, 'case.info_response', 'case', cid);
@@ -365,7 +368,7 @@ export async function reportData(env, req, user, cid) {
   await audit(env, user, 'report.generate', 'case', cid);
   return json({
     case: { id: c.id, submitted_at: c.submitted_at, urgency: c.urgency, red_flags: parseJSON(c.red_flags, []) },
-    person: { id: p.id, name: p.name, sex: p.sex, birth_year: p.birth_year, address: p.address, lsgd_name: p.lsgd_name, ward: p.ward, district: p.district, state: p.state },
+    person: { id: p.id, name: p.name, sex: p.sex, birth_year: p.birth_year, address: p.address, pincode: p.pincode, lsgd_name: p.lsgd_name, ward: p.ward, district: p.district, state: p.state },
     screening: s ? expandScreening(s) : null,
     opinion: publicOpinion(o),
     dentist: d ? { name: d.name, reg_council: d.reg_council, reg_number: d.reg_number } : null,

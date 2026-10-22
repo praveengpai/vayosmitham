@@ -1,6 +1,7 @@
 // Field-worker screens: home, people, a person's record, a case with the dentist's opinion.
 import { html, useState, useEffect, state, useAppState, go, t, L, toast, useLoad, Loading, Field, Choices, TranslatedText, Thumbs, ago, fmtDate,
-  UrgencyChip, StatusChip, Smile, Icon, youtubeEmbed, loadRef } from './ui.js';
+  UrgencyChip, StatusChip, Smile, Icon, youtubeEmbed, loadRef, uiLang, tIn, adviceIn } from './ui.js';
+import { loadLang } from './i18n.js';
 import { api, removeOutbox } from './api.js';
 import { refreshOutbox, runSync } from './main.js';
 import { RED_FLAGS, REFERRAL_TYPES, PHOTO_VIEWS, COMPLAINTS, OHAT_ITEMS } from '/shared/clinical.js';
@@ -74,7 +75,7 @@ export function PersonView({ id }) {
     ${followups.length > 0 && html`<div class="callout info" style="margin-bottom:12px">${t('Next screening due')} ${fmtDate(followups[0].due_date)}</div>`}
     <div class="panel">
       <dl class="kv">
-        <dt>${t('Address')}</dt><dd>${p.address || '—'}</dd>
+        <dt>${t('Address')}</dt><dd>${p.address || '—'}${p.pincode ? ' – ' + p.pincode : ''}</dd>
         <dt>${t('Area')}</dt><dd>${p.lsgd_name}${p.ward ? `, ${t('ward')} ${p.ward}` : ''} · ${p.district}, ${p.state}</dd>
         <dt>${t('Phone')}</dt><dd>${p.phone || '—'}</dd>
         ${p.caregiver_name && html`<dt>${t('Caregiver')}</dt><dd>${p.caregiver_name} (${p.caregiver_relation || ''}) ${p.caregiver_phone || ''}</dd>`}
@@ -133,7 +134,7 @@ export function CaseView({ id }) {
   const [showTx, setShowTx] = useState(s.user.translate_on);
   if (d.loading || d.error) return html`<${Loading} error=${d.error} retry=${d.reload} />`;
   const { case: c, person, screening, images, opinion, kb, info_requests, referral } = d.data;
-  const target = s.user.content_lang || 'ml';
+  const target = s.user.content_lang || uiLang();
   const viewLabel = v => L(PHOTO_VIEWS.find(x => x.key === v)) || v;
   const openQ = info_requests.find(r => !r.resolved_at);
   return html`
@@ -141,7 +142,7 @@ export function CaseView({ id }) {
     <div class="row between" style="margin-top:4px"><h1 style="margin:0">${t('Visit')} ${fmtDate(c.submitted_at)}</h1><span class="row"><${UrgencyChip} u=${c.urgency} /><${StatusChip} s=${c.status} /></span></div>
     <p class="muted small">${c.id}</p>
     ${c.red_flags.length > 0 && html`<div class="callout urgent" style="margin-bottom:12px"><h3>${t('Warning signs found')}</h3>
-      ${c.red_flags.map(k => { const r = RED_FLAGS.find(x => x.key === k); return html`<p><strong>${L(r)}</strong><br />${s.user.ui_lang === 'ml' ? r.advice_ml : r.advice_en}</p>`; })}</div>`}
+      ${c.red_flags.map(k => { const r = RED_FLAGS.find(x => x.key === k); return html`<p><strong>${L(r)}</strong><br />${adviceIn(uiLang(), r)}</p>`; })}</div>`}
 
     ${openQ && html`<${InfoReply} caseId=${c.id} q=${openQ} target=${target} showTx=${showTx} onDone=${d.reload} />`}
 
@@ -237,9 +238,11 @@ function PatientView({ person, opinion, kb, target, onClose }) {
     parts.forEach(k => api('/api/translate', { method: 'POST', body: { text: opinion[k], src: opinion.text_lang, tgt: target } })
       .then(r => setTx(x => ({ ...x, [k]: r.text }))).catch(() => {}));
   }, []);
-  const headings = target === 'ml'
-    ? { impression: 'ഡോക്ടർ കണ്ടത്', advice: 'ചെയ്യേണ്ടത്', care_plan: 'ചികിത്സാ പദ്ധതി', refer: 'ദന്ത ഡോക്ടറെ നേരിൽ കാണണം', title: `${person.name}, ഇതാ ദന്ത ഡോക്ടറുടെ അഭിപ്രായം` }
-    : { impression: 'What the dentist sees', advice: 'What to do', care_plan: 'Care plan', refer: 'Please see a dentist in person', title: `${person.name}, here is the dentist's opinion` };
+  const [, setReady] = useState(0);
+  useEffect(() => { loadLang(target).then(() => setReady(n => n + 1)); }, [target]);
+  const tt = s => tIn(target, s);
+  const headings = { impression: tt('What the dentist sees'), advice: tt('Advice'), care_plan: tt('Care plan'), refer: tt('Please see a dentist in person'),
+    title: `${person.name} — ${tt("Dentist's opinion")}` };
   return html`<div class="patient-view" role="dialog" aria-modal="true" lang=${target}>
     <div class="pv-in">
       <${Smile} cls="pv-smile" />

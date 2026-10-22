@@ -23,8 +23,13 @@ export function contactGaps(s = {}) {
   return ['org_address', 'grievance_name', 'grievance_phone', 'grievance_email'].filter(k => !String(s[k] || '').trim());
 }
 
+// Other languages are registered at run time from /app/lang/<code>.js (translations of the approved English text).
+const PACKS = {};
+export function registerNotice(lang, pack) { if (pack?.notice) PACKS[lang] = pack; }
+export const NOTICE_LANGS = () => ['en', 'ml', ...Object.keys(PACKS).filter(l => l !== 'ml')];
+
 function fill(s, lang) {
-  const gap = lang === 'ml' ? '[ചേർക്കാനുണ്ട്]' : '[to be added]';
+  const gap = lang === 'ml' ? '[ചേർക്കാനുണ്ട്]' : lang === 'en' || !PACKS[lang] ? '[to be added]' : '[…]';
   return {
     org: s.org_legal_name || 'Community Innovation Foundation',
     address: s.org_address || gap,
@@ -39,6 +44,10 @@ function fill(s, lang) {
 // Returns the notice as a list of { h: heading, p: [paragraphs or bullet lines] }.
 export function noticeSections(lang, settings = {}) {
   const f = fill(settings, lang);
+  if (lang !== 'en' && lang !== 'ml' && PACKS[lang]) {
+    const sub = str => str.replace(/\{(org|address|gName|gPhone|gEmail|years|days)\}/g, (_, k) => f[k]);
+    return PACKS[lang].notice.map(sec => ({ h: sub(sec.h), p: sec.p.map(sub) }));
+  }
   if (lang === 'ml') return [
     { h: 'വയോസ്മിതം — സ്വകാര്യതാ അറിയിപ്പും സമ്മതവും', p: [
       `പ്രായമായവർക്കുള്ള സൗജന്യ ദന്താരോഗ്യ പരിപാടിയാണ് വയോസ്മിതം. ഇത് നടത്തുന്നത് ${f.org} (വിലാസം: ${f.address}) ആണ്; ക്ലിനിക്കൽ പങ്കാളി അസോസിയേഷൻ ഓഫ് ജെറിയാട്രിക് ഡെന്റിസ്ട്രി (AGeD). നിങ്ങളുടെ വിവരങ്ങളുടെ ഉത്തരവാദിത്തം ${f.org}-നാണ്.`,
@@ -137,6 +146,11 @@ export const LAYERS = {
     en: ['Link to my ABHA health ID', 'Optional.'],
     ml: ['എന്റെ ABHA ആരോഗ്യ ഐഡിയുമായി ബന്ധിപ്പിക്കൽ', 'ആവശ്യമെങ്കിൽ മാത്രം.'] },
 };
+
+export function layerText(layer, lang) {
+  return LAYERS[layer][lang] || PACKS[lang]?.layers?.[layer] || LAYERS[layer].en;
+}
+export function deciderLabel(d, lang) { return d[lang] || PACKS[lang]?.deciders?.[d.key] || d.en; }
 
 export const DECIDER_TYPES = [
   { key: 'lawful_guardian', en: 'Lawful guardian (appointed by a court or authority)', ml: 'നിയമപരമായ രക്ഷിതാവ് (കോടതി/അധികാരി നിയമിച്ചത്)' },

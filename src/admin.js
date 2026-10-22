@@ -1,7 +1,7 @@
 // Admin, coordinator, auditor, DPO and researcher endpoints.
 import { HttpError, json, body, uid, str, int, oneOf, parseJSON, audit, getSettings, sha256, randomCode } from './util.js';
 import { requireRole, hashPin, normPhone, validPin } from './auth.js';
-import { LSGD_TYPES } from '../public/shared/clinical.js';
+import { LSGD_TYPES, LANG_CODES, validPincode } from '../public/shared/clinical.js';
 import { expandScreening } from './field.js';
 
 const ROLES = ['admin', 'coordinator', 'worker', 'dentist', 'auditor', 'dpo', 'researcher'];
@@ -9,7 +9,7 @@ const ROLES = ['admin', 'coordinator', 'worker', 'dentist', 'auditor', 'dpo', 'r
 // ---------- users ----------
 export async function listUsers(env, req, user) {
   requireRole(user, 'admin', 'coordinator');
-  let sql = `SELECT id, role, name, phone, email, active, organisation, state, district, lsgd_type, lsgd_name, ward, reg_council, reg_number, reg_verified_at,
+  let sql = `SELECT id, role, name, phone, email, active, organisation, state, district, lsgd_type, lsgd_name, ward, pincode, reg_council, reg_number, reg_verified_at,
     trained_at, must_change, created_at FROM users`;
   const args = [];
   if (user.role === 'coordinator') { sql += " WHERE district = ? AND role = 'worker'"; args.push(user.district); }
@@ -30,7 +30,8 @@ function cleanUser(b, existing = {}) {
     lsgd_type: oneOf(b.lsgd_type, LSGD_TYPES.map(t => t.key), existing.lsgd_type ?? null), lsgd_name: str(b.lsgd_name, 120) ?? existing.lsgd_name ?? null,
     ward: str(b.ward, 20) ?? existing.ward ?? null,
     reg_council: str(b.reg_council, 80) ?? existing.reg_council ?? null, reg_number: str(b.reg_number, 40) ?? existing.reg_number ?? null,
-    content_lang: oneOf(b.content_lang, ['en', 'ml', 'ta', 'kn', 'te', 'hi'], existing.content_lang || 'ml'),
+    content_lang: oneOf(b.content_lang, LANG_CODES, existing.content_lang || 'ml'),
+    pincode: b.pincode !== undefined ? (validPincode(b.pincode) ? String(b.pincode).trim() : null) : (existing.pincode ?? null),
   };
   if (role === 'worker' && (!u.state || !u.district || !u.lsgd_type || !u.lsgd_name)) throw new HttpError(400, 'Field workers need state, district and LSGD');
   if (role === 'coordinator' && !u.district) throw new HttpError(400, 'Coordinators need a district');
@@ -57,7 +58,8 @@ export async function createUser(env, req, user) {
   await env.IDENTITY.prepare(
     `INSERT INTO users (id, role, name, phone, email, pin_hash, pin_salt, must_change, organisation, state, district, lsgd_type, lsgd_name, ward, reg_council, reg_number, reg_verified_at, content_lang, ui_lang)
      VALUES (?,?,?,?,?,?,?,1,?,?,?,?,?,?,?,?,?,?,?)`).bind(id, u.role, u.name, u.phone, u.email, hash, salt, u.organisation, u.state, u.district, u.lsgd_type, u.lsgd_name, u.ward,
-    u.reg_council, u.reg_number, b.reg_verified ? new Date().toISOString().slice(0, 10) : null, u.content_lang, u.role === 'worker' ? 'ml' : 'en').run();
+    u.reg_council, u.reg_number, b.reg_verified ? new Date().toISOString().slice(0, 10) : null, u.content_lang, 'en').run();
+  if (u.pincode) await env.IDENTITY.prepare('UPDATE users SET pincode = ? WHERE id = ?').bind(u.pincode, id).run();
   await audit(env, user, 'user.create', 'user', id, { role: u.role });
   return json({ id, temporary_pin: pin });
 }
@@ -74,9 +76,9 @@ export async function updateUser(env, req, user, id) {
   await env.IDENTITY.prepare(
     `UPDATE users SET role=?, name=?, phone=?, email=?, organisation=?, state=?, district=?, lsgd_type=?, lsgd_name=?, ward=?, reg_council=?, reg_number=?,
        reg_verified_at = CASE WHEN ? THEN date('now') ELSE reg_verified_at END, active=?, trained_at = CASE WHEN ? THEN date('now') ELSE trained_at END,
-       content_lang=?, updated_at=datetime('now') WHERE id=?`)
+       content_lang=?, pincode=?, updated_at=datetime('now') WHERE id=?`)
     .bind(u.role, u.name, u.phone, u.email, u.organisation, u.state, u.district, u.lsgd_type, u.lsgd_name, u.ward, u.reg_council, u.reg_number,
-      b.reg_verified ? 1 : 0, b.active === false ? 0 : 1, b.mark_trained ? 1 : 0, u.content_lang, id).run();
+      b.reg_verified ? 1 : 0, b.active === false ? 0 : 1, b.mark_trained ? 1 : 0, u.content_lang, u.pincode, id).run();
   if (b.active === false) await env.IDENTITY.prepare('DELETE FROM sessions WHERE user_id = ?').bind(id).run();
   await audit(env, user, 'user.update', 'user', id, { active: b.active !== false });
   return json({ ok: true });

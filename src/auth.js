@@ -83,7 +83,7 @@ export async function currentUser(env, request) {
 export function publicUser(u) {
   return {
     id: u.id, role: u.role, name: u.name, phone: u.phone, email: u.email, must_change: !!u.must_change,
-    organisation: u.organisation, state: u.state, district: u.district, lsgd_type: u.lsgd_type, lsgd_name: u.lsgd_name, ward: u.ward,
+    organisation: u.organisation, state: u.state, district: u.district, lsgd_type: u.lsgd_type, lsgd_name: u.lsgd_name, ward: u.ward, pincode: u.pincode,
     reg_council: u.reg_council, reg_number: u.reg_number,
     ui_lang: u.ui_lang, content_lang: u.content_lang, translate_on: !!u.translate_on, trained_at: u.trained_at,
   };

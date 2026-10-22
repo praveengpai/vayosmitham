@@ -268,3 +268,8 @@ table.t td.num, table.t th.num { text-align: right; font-variant-numeric: tabula
 .notice h3 { margin: 14px 0 4px; color: var(--green-2); }
 .notice h3:first-child { margin-top: 0; }
 .notice p { margin: 0 0 4px; }
+
+/* language picker on the sign-in page */
+.lang-pick { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+.lang-pick button { flex: 1 1 auto; min-height: 40px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: #fff; cursor: pointer; font-size: .95rem; }
+.lang-pick button.on { background: var(--green); border-color: var(--green); color: #fff; font-weight: 700; }

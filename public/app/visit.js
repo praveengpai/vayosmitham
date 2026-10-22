@@ -1,11 +1,12 @@
 // The home-visit wizard: person → consent → warning signs → complaints → OHAT → teeth → health → habits → GOHAI → photos → review.
 // Everything is saved to the encrypted outbox first, then sent when there is a connection.
-import { html, useState, useEffect, useRef, state, useAppState, go, t, L, toast, Field, Choices, YesNo, loadRef, Icon, useLoad, Loading } from './ui.js';
+import { html, useState, useEffect, useRef, state, useAppState, go, t, L, toast, Field, Choices, YesNo, loadRef, Icon, useLoad, Loading, DistrictInput, adviceIn, uiLang, LOCALE, useLanguage } from './ui.js';
+import { loadLang } from './i18n.js';
 import { api, putOutbox, uuid, vaultUnlocked } from './api.js';
 import { refreshOutbox, runSync } from './main.js';
 import { processPhoto } from './photo.js';
-import { CONSENT_VERSION, noticeSections, noticeText, LAYERS, DECIDER_TYPES, contactGaps } from '/shared/consent.js';
-import { OHAT_ITEMS, GOHAI_ITEMS, GOHAI_OPTIONS, COMPLAINTS, RED_FLAGS, PHOTO_VIEWS, STATES, KERALA_DISTRICTS, LSGD_TYPES, LOCATION_OVERRIDE_REASONS,
+import { CONSENT_VERSION, noticeSections, noticeText, layerText, deciderLabel, DECIDER_TYPES, contactGaps, registerNotice } from '/shared/consent.js';
+import { OHAT_ITEMS, GOHAI_ITEMS, GOHAI_OPTIONS, COMPLAINTS, RED_FLAGS, PHOTO_VIEWS, STATES, LSGD_TYPES, UI_LANGUAGES, LANGUAGES, validPincode, LOCATION_OVERRIDE_REASONS,
   flagMedicines, MEDICINE_FLAGS, ohatTotal, gohaiTotal, detectLang } from '/shared/clinical.js';
 
 const STEPS = ['person', 'consent', 'flags', 'complaints', 'ohat', 'teeth', 'health', 'habits', 'gohai', 'photos', 'review'];
@@ -14,9 +15,9 @@ const DRAFT_KEY = 'vs_visit_draft';
 function blankVisit(user, personId) {
   return {
     client_uuid: uuid(), visit_type: personId ? 'followup' : 'baseline', person_id: personId || null,
-    person: { client_uuid: uuid(), name: '', sex: '', birth_year: '', age: '', phone: '', address: '', state: user.state || 'Kerala', district: user.district || '',
+    person: { client_uuid: uuid(), name: '', sex: '', birth_year: '', age: '', phone: '', address: '', pincode: '', state: user.state || 'Kerala', district: user.district || '',
       lsgd_type: user.lsgd_type || '', lsgd_name: user.lsgd_name || '', ward: user.ward || '', location_override_reason: '', caregiver_name: '', caregiver_phone: '', caregiver_relation: '' },
-    consent: { capacity: 'has_capacity', method: 'signature', witness_name: '', assent_by: '', assent_relation: '', decider_type: '', layers: { care: false, photos: false, research: false, messaging: false }, read: false, notice_language: 'ml', copy_offered: false },
+    consent: { capacity: 'has_capacity', method: 'signature', witness_name: '', assent_by: '', assent_relation: '', decider_type: '', layers: { care: false, photos: false, research: false, messaging: false }, read: false, notice_language: (user.content_lang && user.content_lang !== 'en' ? user.content_lang : uiLang()), copy_offered: false },
     red_flags: [], none_flags: false,
     screening: { complaints: [], complaint_text: '', ohat: {}, gohai: Array(12).fill(null), skip_gohai: false, natural_teeth: '', denture_upper: '', denture_lower: '', denture_fit: '',
       context: {}, medicines: [], risks: {}, worker_notes: '' },
@@ -58,6 +59,7 @@ export function VisitWizard({ personId }) {
       if (!p.sex) return t('Choose sex');
       if (!p.birth_year && !p.age) return t('Enter age or year of birth');
       if (!p.state || !p.district || !p.lsgd_type || !p.lsgd_name) return t('State, district and LSGD are needed');
+      if (p.pincode && !validPincode(p.pincode)) return t('PIN code must be 6 digits');
       if (locationChanged(p, user) && !p.location_override_reason) return t('Choose why the location is different from your area');
     }
     if (name === 'consent') {
@@ -172,6 +174,7 @@ function PersonStep({ p, upd, user }) {
     </div>
     <${Field} label=${t('Phone (optional)')}><input type="tel" inputmode="tel" value=${p.phone} onInput=${e => upd('person.phone', e.target.value)} /><//>
     <${Field} label=${t('House name / address')}><input type="text" value=${p.address} onInput=${e => upd('person.address', e.target.value)} /><//>
+    <${Field} label=${t('PIN code (optional)')}><input type="text" inputmode="numeric" maxlength="6" style="max-width:160px" value=${p.pincode || ''} onInput=${e => upd('person.pincode', e.target.value.replace(/\D/g, ''))} /><//>
 
     <div class="panel">
       <div class="row between"><div><span class="lbl">${t('Location')}</span>
@@ -180,10 +183,8 @@ function PersonStep({ p, upd, user }) {
       ${!showLoc && html`<p class="tiny">${t('Filled in from your own area.')}</p>`}
       ${showLoc && html`<div class="stack" style="margin-top:12px">
         <div class="grid-2">
-          <${Field} label=${t('State')}><select value=${p.state} onChange=${e => upd('person.state', e.target.value)}>${STATES.map(x => html`<option>${x}</option>`)}</select><//>
-          <${Field} label=${t('District')}>${p.state === 'Kerala'
-            ? html`<select value=${p.district} onChange=${e => { upd('person.district', e.target.value); upd('person.lsgd_name', ''); }}><option value="">—</option>${KERALA_DISTRICTS.map(x => html`<option>${x}</option>`)}</select>`
-            : html`<input type="text" value=${p.district} onInput=${e => upd('person.district', e.target.value)} />`}<//>
+          <${Field} label=${t('State')}><select value=${p.state} onChange=${e => { upd('person.state', e.target.value); upd('person.district', ''); }}>${STATES.map(x => html`<option>${x}</option>`)}</select><//>
+          <${Field} label=${t('District')}><${DistrictInput} state=${p.state} value=${p.district} onChange=${x => { upd('person.district', x); upd('person.lsgd_name', ''); }} /><//>
         </div>
         <${Field} label=${t('LSGD type')}><select value=${p.lsgd_type} onChange=${e => upd('person.lsgd_type', e.target.value)}><option value="">—</option>${LSGD_TYPES.map(x => html`<option value=${x.key}>${L(x)}</option>`)}</select><//>
         <div class="grid-2">
@@ -211,11 +212,13 @@ function ConsentStep({ c, upd, hasCare, prior }) {
   const s = useAppState();
   const settings = s.ref?.settings || {};
   const lang = c.notice_language;
+  const [, setReady] = useState(0);
+  useEffect(() => { loadLang(lang).then(pk => { if (pk) registerNotice(lang, pk); setReady(n => n + 1); }); }, [lang]);
   const speak = () => {
     if (!('speechSynthesis' in window)) return toast(t('Reading aloud is not available on this phone'), true);
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(noticeText(lang, settings));
-    u.lang = lang === 'ml' ? 'ml-IN' : 'en-IN';
+    u.lang = LOCALE[lang] || 'en-IN';
     u.rate = 0.9;
     speechSynthesis.speak(u);
   };
@@ -226,7 +229,8 @@ function ConsentStep({ c, upd, hasCare, prior }) {
     ${hasCare && html`<div class="callout ok">${t('Consent for screening was recorded at an earlier visit. Check that the person is still happy to continue.')}</div>`}
     ${gaps.length > 0 && html`<div class="callout warn small">${t('The notice is missing contact details. Ask the administrator to fill them in under Settings.')}</div>`}
     <div class="row between">
-      <${Choices} name="nl" value=${lang} onChange=${x => upd('consent.notice_language', x)} options=${[{ key: 'ml', label: 'മലയാളം' }, { key: 'en', label: 'English' }]} />
+      <select style="max-width:200px" aria-label=${t('Language')} value=${lang} onChange=${async e => { const x = e.target.value; const pk = await loadLang(x); if (pk) registerNotice(x, pk); upd('consent.notice_language', x); }}>
+        ${UI_LANGUAGES.map(code => html`<option value=${code}>${LANGUAGES.find(l => l.code === code)?.native}</option>`)}</select>
       <span class="row"><button type="button" class="btn" onClick=${speak}>🔊 ${t('Read aloud')}</button>
         <a class="btn" href=${'/privacy.html?lang=' + lang} target="_blank" rel="noopener">${t('Printable copy')}</a></span>
     </div>
@@ -241,13 +245,13 @@ function ConsentStep({ c, upd, hasCare, prior }) {
       ${c.method === 'verbal_witnessed' && html`<${Field} label=${t('Witness name')} hint=${t('An adult who is not a programme worker')}><input type="text" value=${c.witness_name} onInput=${e => upd('consent.witness_name', e.target.value)} /><//>`}`
     : html`<div class="callout warn">${t('Someone must decide in the person’s best interests. Prefer a lawful guardian if one exists. Still explain to the person, and stop if they object or seem distressed.')}</div>
       <${Field} label=${t('Who is deciding for them?')}><${Choices} name="dt" value=${c.decider_type} onChange=${x => upd('consent.decider_type', x)}
-        options=${DECIDER_TYPES.map(d => ({ key: d.key, label: L(d) }))} /><//>
+        options=${DECIDER_TYPES.map(d => ({ key: d.key, label: deciderLabel(d, uiLang()) }))} /><//>
       <div class="grid-2"><${Field} label=${t('Name of the person deciding')}><input type="text" value=${c.assent_by} onInput=${e => upd('consent.assent_by', e.target.value)} /><//>
         <${Field} label=${t('Relation')}><input type="text" value=${c.assent_relation} onInput=${e => upd('consent.assent_relation', e.target.value)} /><//></div>`}
     <div><span class="lbl">${t('Tick only what the person agrees to')}</span>
       <div class="stack">${layers.map(l => html`<label class=${'choice block' + (c.layers[l] ? ' on' : '')}>
         <input type="checkbox" checked=${c.layers[l]} onChange=${e => upd('consent.layers.' + l, e.target.checked)} />
-        <span><span class="t">${LAYERS[l][lang][0]}</span><span class="d">${LAYERS[l][lang][1]}</span></span></label>`)}</div></div>
+        <span><span class="t">${layerText(l, lang)[0]}</span><span class="d">${layerText(l, lang)[1]}</span></span></label>`)}</div></div>
     <label class=${'choice block' + (c.read ? ' on' : '')}><input type="checkbox" checked=${c.read} onChange=${e => upd('consent.read', e.target.checked)} />
       <span class="t">${t('I explained this information in a language they understand and answered their questions')}</span></label>
     <label class=${'choice block' + (c.copy_offered ? ' on' : '')}><input type="checkbox" checked=${c.copy_offered} onChange=${e => upd('consent.copy_offered', e.target.checked)} />
@@ -265,7 +269,7 @@ function FlagsStep({ v, upd }) {
     <label class=${'choice block' + (v.none_flags ? ' on' : '')}><input type="checkbox" checked=${v.none_flags} onChange=${e => { upd('none_flags', e.target.checked); if (e.target.checked) upd('red_flags', []); }} />
       <span class="t">${t('None of these')}</span></label>
     ${v.red_flags.length > 0 && html`<div class="callout urgent"><h3>${t('Act now — do not wait for the dentist')}</h3>
-      ${v.red_flags.map(k => { const r = RED_FLAGS.find(x => x.key === k); return html`<p>${state.user.ui_lang === 'ml' ? r.advice_ml : r.advice_en}</p>`; })}
+      ${v.red_flags.map(k => { const r = RED_FLAGS.find(x => x.key === k); return html`<p>${adviceIn(uiLang(), r)}</p>`; })}
       <p class="small">${t('This visit will be marked urgent for the dentists.')}</p></div>`}
   </div>`;
 }

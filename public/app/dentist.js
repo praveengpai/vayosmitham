@@ -159,7 +159,7 @@ function OpinionForm({ caseId, onDone, initial, correcting }) {
   const ta = (k, label, hint, rows = 3) => html`<${Field} label=${label} hint=${hint}><textarea rows=${rows} value=${f[k]} onInput=${e => set(k, e.target.value)}></textarea><//>`;
   return html`<div class="panel stack">
     <h2>${correcting ? t('Correct your opinion') : t('Your opinion')}</h2>
-    <p class="tiny">${t('Write in English or Malayalam. The field worker sees a translation into her language. Write plainly — it will be shown to the older person.')}</p>
+    <p class="tiny">${t('Write in English or your own language. The field worker sees a translation into her language. Write plainly — it will be shown to the older person.')}</p>
     <label class=${'choice block' + (f.cannot_assess ? ' on' : '')}><input type="checkbox" checked=${f.cannot_assess} onChange=${e => set('cannot_assess', e.target.checked)} />
       <span><span class="t">${t('Cannot assess remotely — needs in-person examination')}</span></span></label>
     ${ta('impression', t('Impression'), t('What you think is going on, in plain words'), 2)}

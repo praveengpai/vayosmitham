@@ -26,7 +26,7 @@ export function ReportView({ caseId }) {
   if (d.loading || d.error) return html`<${Loading} error=${d.error} retry=${d.reload} />`;
   const { case: c, person: p, screening: sc, opinion: o, dentist, kb, generated_at } = d.data;
   const verifyUrl = `${location.origin}/v/${o.verify_code}`;
-  const target = s.user.content_lang || 'ml';
+  const target = s.user.content_lang && s.user.content_lang !== 'en' ? s.user.content_lang : 'ml';
   const age = p.birth_year ? new Date().getFullYear() - p.birth_year : null;
   const block = (title, text) => text && html`<h2>${title}</h2>
     ${lang === 'orig' || o.text_lang === target ? html`<div class="box">${text}</div>` : html`<${TranslatedText} text=${text} lang=${o.text_lang} target=${target} show=${true} />`}`;
@@ -47,7 +47,7 @@ export function ReportView({ caseId }) {
       <dl class="kv">
         <dt>Name</dt><dd>${p.name}</dd>
         <dt>Age / sex</dt><dd>${age ? age + ' years' : '—'} / ${{ F: 'Female', M: 'Male', O: 'Other' }[p.sex]}</dd>
-        <dt>Address</dt><dd>${[p.address, p.lsgd_name, p.ward && 'Ward ' + p.ward, p.district, p.state].filter(Boolean).join(', ')}</dd>
+        <dt>Address</dt><dd>${[p.address, p.lsgd_name, p.ward && 'Ward ' + p.ward, p.district, p.state, p.pincode].filter(Boolean).join(', ')}</dd>
         <dt>Person ID / case</dt><dd>${p.id} / ${c.id}</dd>
         <dt>Screened at home</dt><dd>${fmtDate(c.submitted_at)}</dd>
         <dt>Opinion signed</dt><dd>${fmtDate(o.signed_at)}${o.version > 1 ? ` (corrected version ${o.version})` : ''}</dd>

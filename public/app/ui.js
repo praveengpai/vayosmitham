@@ -1,7 +1,8 @@
 // Shared state, translations and UI building blocks.
 import { html, render, useState, useEffect, useRef } from '/vendor/preact-htm.js';
 import { api } from './api.js';
-import { ML } from './i18n.js';
+import { DICTS, loadLang } from './i18n.js';
+import { registerNotice } from '/shared/consent.js';
 
 export { html, render, useState, useEffect, useRef };
 
@@ -15,9 +16,25 @@ export function useAppState() {
 }
 
 // UI language: English or Malayalam. Strings without a Malayalam entry fall back to English.
-export function t(s) { return state.user?.ui_lang === 'ml' && ML[s] ? ML[s] : s; }
-export function L(obj) { if (!obj) return ''; return state.user?.ui_lang === 'ml' && obj.ml ? obj.ml : obj.en; }
-export const uiLang = () => state.user?.ui_lang || 'en';
+// Interface language: chosen on the sign-in page (stored on this device) or in the profile. Default English.
+export const uiLang = () => state.lang || state.user?.ui_lang || 'en';
+export function tIn(lang, s) { return (lang !== 'en' && DICTS[lang]?.ui?.[s]) || s; }
+export function t(s) { return tIn(uiLang(), s); }
+export function LIn(lang, obj) {
+  if (!obj) return '';
+  if (lang === 'en') return obj.en;
+  return obj[lang] || DICTS[lang]?.clinical?.[obj.en] || DICTS[lang]?.ui?.[obj.en] || obj.en;
+}
+export function L(obj) { return LIn(uiLang(), obj); }
+// Advice text for a red flag in a language
+export function adviceIn(lang, r) { return lang === 'en' ? r.advice_en : (lang === 'ml' ? r.advice_ml : DICTS[lang]?.clinical?.[r.advice_en] || r.advice_en); }
+export async function useLanguage(code) {
+  const pack = await loadLang(code);
+  if (pack?.notice) registerNotice(code, pack);
+  document.documentElement.lang = code || 'en';
+  setState({ lang: code });
+}
+export const LOCALE = { en: 'en-IN', ml: 'ml-IN', ta: 'ta-IN', kn: 'kn-IN', te: 'te-IN', hi: 'hi-IN', mr: 'mr-IN' };
 
 export async function loadRef(force = false) {
   if (state.ref && !force) return state.ref;
@@ -102,7 +119,7 @@ export async function translateText(text, src, tgt) {
   txCache.set(k, r);
   return r;
 }
-const LANG_NAMES = { en: 'English', ml: 'മലയാളം', ta: 'தமிழ்', kn: 'ಕನ್ನಡ', te: 'తెలుగు', hi: 'हिन्दी' };
+const LANG_NAMES = { en: 'English', ml: 'മലയാളം', ta: 'தமிழ்', kn: 'ಕನ್ನಡ', te: 'తెలుగు', hi: 'हिन्दी', mr: 'मराठी' };
 
 // Original text, and when `show` is on and languages differ, a machine translation in the box beside it.
 export function TranslatedText({ text, lang, target, show = true, label }) {
@@ -154,7 +171,7 @@ export function ago(sqlTime) {
 export function fmtDate(s) {
   if (!s) return '';
   const d = new Date(s.length <= 10 ? s + 'T00:00:00' : s.replace(' ', 'T') + 'Z');
-  return d.toLocaleDateString(uiLang() === 'ml' ? 'ml-IN' : 'en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(LOCALE[uiLang()] || 'en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 export function UrgencyChip({ u }) { return html`<span class=${'chip ' + u}>${u === 'urgent' ? t('Urgent') : t('Routine')}</span>`; }
 export function StatusChip({ s }) {
@@ -183,4 +200,15 @@ export const Icon = {
 export function youtubeEmbed(url) {
   const m = String(url).match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/);
   return m ? `https://www.youtube-nocookie.com/embed/${m[1]}` : null;
+}
+
+// District picker: a list for the states we know, free text otherwise (or when "Other" is chosen).
+import { DISTRICTS } from '/shared/clinical.js';
+export function DistrictInput({ state: st, value, onChange, disabled }) {
+  const list = DISTRICTS[st];
+  const [free, setFree] = useState(!!(value && list && !list.includes(value)));
+  if (!list || free) return html`<span class="row" style="flex-wrap:nowrap"><input type="text" value=${value || ''} disabled=${disabled} onInput=${e => onChange(e.target.value)} />
+    ${list && !disabled ? html`<button type="button" class="btn link" onClick=${() => { setFree(false); onChange(''); }}>${t('List')}</button>` : ''}</span>`;
+  return html`<select value=${value || ''} disabled=${disabled} onChange=${e => { if (e.target.value === '__other') { setFree(true); onChange(''); } else onChange(e.target.value); }}>
+    <option value="">—</option>${list.map(x => html`<option>${x}</option>`)}<option value="__other">${t('Other')}…</option></select>`;
 }

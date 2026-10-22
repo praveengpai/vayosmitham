@@ -89,7 +89,7 @@ export async function saveOpinion(env, req, user, cid) {
   if (!holds) throw new HttpError(409, 'Your time on this case has run out. Open it again from the queue.');
   if (!user.reg_number) throw new HttpError(403, 'Your dental registration number is not on record. Ask the admin to add it.');
   const b = await body(req);
-  const o = cleanOpinion(b);
+  const o = cleanOpinion(b, user.content_lang);
   const s = await getSettings(env);
   const sampled = Math.random() * 100 < Number(s.audit_sample_percent || 10) ? 1 : 0;
   const id = uid('OP-');
@@ -115,7 +115,7 @@ export async function saveOpinion(env, req, user, cid) {
   return json({ id });
 }
 
-function cleanOpinion(b) {
+function cleanOpinion(b, hint) {
   const findings = str(b.findings, 3000), impression = str(b.impression, 1000), advice = str(b.advice, 3000), care_plan = str(b.care_plan, 3000);
   const cannot = b.cannot_assess ? 1 : 0;
   if (!cannot && !impression) throw new HttpError(400, 'Please write your impression');
@@ -125,7 +125,7 @@ function cleanOpinion(b) {
   if (referral && !type) throw new HttpError(400, 'Choose the referral type');
   const all = [findings, impression, advice, care_plan, str(b.note)].filter(Boolean).join(' ');
   return {
-    findings, impression, advice, care_plan, note: str(b.note, 2000), text_lang: all ? detectLang(all) : 'en',
+    findings, impression, advice, care_plan, note: str(b.note, 2000), text_lang: all ? detectLang(all, hint) : 'en',
     followup_months: int(b.followup_months, 1, 24),
     referral_needed: referral, referral_type: type,
     referral_urgency: referral ? oneOf(b.referral_urgency, ['within_24h', 'within_7d', 'within_30d', 'routine'], 'routine') : null,
@@ -143,7 +143,7 @@ export async function requestInfo(env, req, user, cid) {
   const message = str(b.message, 2000);
   if (!message) throw new HttpError(400, 'Write what you need from the field worker');
   await env.CLINICAL.batch([
-    env.CLINICAL.prepare('INSERT INTO info_requests (id, case_id, dentist_id, message, message_lang) VALUES (?,?,?,?,?)').bind(uid('IR-'), cid, user.id, message, detectLang(message)),
+    env.CLINICAL.prepare('INSERT INTO info_requests (id, case_id, dentist_id, message, message_lang) VALUES (?,?,?,?,?)').bind(uid('IR-'), cid, user.id, message, detectLang(message, user.content_lang)),
     env.CLINICAL.prepare("UPDATE cases SET status = 'info_requested', claimed_by = NULL, claim_expires = NULL WHERE id = ?").bind(cid),
   ]);
   await audit(env, user, 'case.info_request', 'case', cid);
@@ -169,7 +169,7 @@ export async function correctOpinion(env, req, user, oid) {
   const b = await body(req);
   const reason = str(b.correction_reason, 500);
   if (!reason) throw new HttpError(400, 'Give the reason for the correction');
-  const o = cleanOpinion(b);
+  const o = cleanOpinion(b, user.content_lang);
   const id = uid('OP-');
   await env.CLINICAL.batch([
     env.CLINICAL.prepare(

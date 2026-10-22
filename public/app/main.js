@@ -1,11 +1,11 @@
-import { html, render, useState, useEffect, state, setState, useAppState, useRoute, go, t, toast, Field, Logo, Icon, loadRef, Switch } from './ui.js';
+import { html, render, useState, useEffect, state, setState, useAppState, useRoute, go, t, toast, Field, Logo, Icon, loadRef, Switch, useLanguage, uiLang } from './ui.js';
 import { api, unlockVault, vaultUnlocked, vaultOwner, listOutbox, syncOutbox, rekeyVault, lockVault } from './api.js';
 import { WorkerHome, PeopleList, PersonView, CaseView, Outbox } from './field.js';
 import { VisitWizard } from './visit.js';
 import { DentistQueue, DentistCase, DentistHistory } from './dentist.js';
 import { AdminArea, AuditQueue, AuditCase } from './admin.js';
 import { ReportView } from './report.js';
-import { LANGUAGES } from '/shared/clinical.js';
+import { LANGUAGES, UI_LANGUAGES } from '/shared/clinical.js';
 import { CONSENT_VERSION, isDraft, contactGaps } from '/shared/consent.js';
 
 // ---------- boot ----------
@@ -22,11 +22,16 @@ async function boot() {
       try { const cached = JSON.parse(localStorage.getItem('vs_user') || 'null'); if (cached) setState({ user: cached, offlineSession: true }); } catch { /* ignore */ }
     }
   }
-  document.documentElement.lang = state.user?.ui_lang || 'en';
+  await useLanguage(deviceLang() || state.user?.ui_lang || 'en');
   render(html`<${App} />`, document.getElementById('app'));
   if (state.user) { loadRef(); refreshOutbox(); }
   setInterval(() => { if (state.user && navigator.onLine) runSync(); }, 60000);
 }
+
+// The language picked on the sign-in page is remembered on this device.
+export function deviceLang() { try { return localStorage.getItem('vs_lang'); } catch { return null; } }
+function setDeviceLang(code) { try { localStorage.setItem('vs_lang', code); } catch { /* ignore */ } }
+const nativeName = code => LANGUAGES.find(l => l.code === code)?.native || code;
 
 export async function refreshOutbox() {
   try { setState({ outbox: await listOutbox() }); } catch { /* IndexedDB unavailable */ }
@@ -118,21 +123,34 @@ function Login() {
       const { user } = await api('/api/auth/login', { method: 'POST', body: { phone, pin } });
       try { localStorage.setItem('vs_user', JSON.stringify(user)); } catch { /* ignore */ }
       if (user.role === 'worker') { await unlockVault(user.id, pin); setState({ vaultChecked: true }); }
+      // A language chosen on this device's sign-in page wins; otherwise use the profile's language.
+      const chosen = deviceLang();
+      if (chosen && chosen !== user.ui_lang) {
+        const patch = { ui_lang: chosen };
+        if ((user.role === 'worker' || user.role === 'coordinator') && chosen !== 'en') patch.content_lang = chosen;
+        Object.assign(user, patch);
+        api('/api/me/prefs', { method: 'PATCH', body: patch }).catch(() => {});
+      }
+      await useLanguage(user.ui_lang || 'en');
       setState({ user });
-      document.documentElement.lang = user.ui_lang;
       loadRef(true); refreshOutbox(); runSync();
       go('/');
-    } catch (e2) { setErr(e2.code === 'offline' ? 'You need internet to sign in.' : e2.message); }
+    } catch (e2) { setErr(e2.code === 'offline' ? t('You need internet to sign in.') : e2.message); }
     setBusy(false);
   };
+  const lang = uiLang();
+  const pick = async code => { setDeviceLang(code); await useLanguage(code); };
   return html`<div class="login"><form class="login-card stack" onSubmit=${submit}>
+    <div class="lang-pick" role="radiogroup" aria-label="Language">
+      ${UI_LANGUAGES.map(code => html`<button type="button" role="radio" aria-checked=${lang === code} class=${lang === code ? 'on' : ''} lang=${code} onClick=${() => pick(code)}>${nativeName(code)}</button>`)}
+    </div>
     <div class="login-mark"><svg viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#0c5f56"/><path d="M176 132c-34 0-62 28-62 66 0 46 16 78 28 118 9 31 14 66 36 66 18 0 22-28 30-54 6-20 14-32 28-32s22 12 28 32c8 26 12 54 30 54 22 0 27-35 36-66 12-40 28-72 28-118 0-38-28-66-62-66-26 0-38 14-60 14s-34-14-60-14z" fill="#fff"/><path d="M128 400c70 52 186 52 256 0" stroke="#e5a21b" stroke-width="30" stroke-linecap="round" fill="none"/></svg>
-      <div><div class="name">Vayosmitham</div><div class="sub">വയോസ്മിതം · Oral health for older people</div></div></div>
-    <${Field} label="Mobile number / മൊബൈൽ നമ്പർ"><input type="tel" inputmode="numeric" autocomplete="username" value=${phone} onInput=${e => setPhone(e.target.value)} required /><//>
-    <${Field} label="6-digit PIN / പിൻ"><input class="pin-input" type="password" inputmode="numeric" autocomplete="current-password" maxlength="6" value=${pin} onInput=${e => setPin(e.target.value)} required /><//>
+      <div><div class="name">Vayosmitham</div><div class="sub">${t('Oral health for older people')}</div></div></div>
+    <${Field} label=${t('Mobile number')}><input type="tel" inputmode="numeric" autocomplete="username" value=${phone} onInput=${e => setPhone(e.target.value)} required /><//>
+    <${Field} label=${t('6-digit PIN')}><input class="pin-input" type="password" inputmode="numeric" autocomplete="current-password" maxlength="6" value=${pin} onInput=${e => setPin(e.target.value)} required /><//>
     ${err && html`<div class="callout urgent" role="alert">${err}</div>`}
-    <button class="btn primary big" disabled=${busy}>${busy ? 'Signing in…' : 'Sign in / പ്രവേശിക്കുക'}</button>
-    <p class="tiny">Forgot your PIN? Ask your coordinator to reset it. A project of Community Innovation Foundation with the Association of Geriatric Dentistry (AGeD).</p>
+    <button class="btn primary big" disabled=${busy}>${busy ? t('Signing in…') : t('Sign in')}</button>
+    <p class="tiny">${t('Forgot your PIN? Ask your coordinator to reset it.')} ${t('A project of Community Innovation Foundation with the Association of Geriatric Dentistry (AGeD).')}</p>
   </form></div>`;
 }
 
@@ -206,7 +224,6 @@ function Profile() {
       const user = { ...u, ...patch };
       setState({ user });
       try { localStorage.setItem('vs_user', JSON.stringify(user)); } catch { /* ignore */ }
-      document.documentElement.lang = user.ui_lang;
     } catch (e) { toast(e.message, true); }
   };
   const logout = async () => {
@@ -228,7 +245,8 @@ function Profile() {
     <div class="panel stack">
       <h2>${t('Language')}</h2>
       <${Field} label=${t('App language')}>
-        <select value=${u.ui_lang} onChange=${e => save({ ui_lang: e.target.value })}><option value="en">English</option><option value="ml">മലയാളം (Malayalam)</option></select><//>
+        <select value=${uiLang()} onChange=${async e => { const code = e.target.value; setDeviceLang(code); await useLanguage(code); save({ ui_lang: code }); }}>
+          ${UI_LANGUAGES.map(code => html`<option value=${code}>${nativeName(code)}${code !== 'en' ? ` (${LANGUAGES.find(l => l.code === code)?.name})` : ''}</option>`)}</select><//>
       <${Field} label=${t('Translate notes into')} hint=${t('Notes written in another language are shown with a machine translation into this language.')}>
         <select value=${u.content_lang} onChange=${e => save({ content_lang: e.target.value })}>${LANGUAGES.map(l => html`<option value=${l.code}>${l.native}${l.native !== l.name ? ` (${l.name})` : ''}</option>`)}</select><//>
       <${Switch} checked=${u.translate_on} onChange=${v => save({ translate_on: v })} label=${t('Show translations')} />

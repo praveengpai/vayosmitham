@@ -1,8 +1,8 @@
 // Administration, coordinator dashboard, clinical audit, data protection and research exports.
-import { html, useState, useEffect, state, useAppState, go, t, L, toast, useLoad, Loading, Field, Choices, Thumbs, fmtDate, ago, UrgencyChip, loadRef } from './ui.js';
+import { html, useState, useEffect, state, useAppState, go, t, L, toast, DistrictInput, useLoad, Loading, Field, Choices, Thumbs, fmtDate, ago, UrgencyChip, loadRef } from './ui.js';
 import { api } from './api.js';
 import { ScreeningSummary } from './field.js';
-import { STATES, KERALA_DISTRICTS, LSGD_TYPES, PHOTO_VIEWS, REFERRAL_TYPES, RED_FLAGS } from '/shared/clinical.js';
+import { STATES, ALL_DISTRICTS, LANGUAGES, LSGD_TYPES, PHOTO_VIEWS, REFERRAL_TYPES, RED_FLAGS } from '/shared/clinical.js';
 import { CONSENT_VERSION, isDraft } from '/shared/consent.js';
 
 const SECTIONS = {
@@ -49,7 +49,7 @@ function Dashboard() {
       <a class="btn" href=${'/api/admin/indicators.csv?' + qs}>${t('Download indicators (CSV)')}</a></div>
     <div class="row" style="margin:12px 0">
       ${!coord && html`<select style="max-width:220px" value=${f.district} onChange=${e => setF({ ...f, district: e.target.value })} aria-label=${t('District')}>
-        <option value="">${t('All districts')}</option>${KERALA_DISTRICTS.map(x => html`<option>${x}</option>`)}</select>`}
+        <option value="">${t('All districts')}</option>${ALL_DISTRICTS.map(x => html`<option>${x}</option>`)}</select>`}
       <label class="row small">${t('From')} <input type="date" style="max-width:170px" value=${f.from} onInput=${e => setF({ ...f, from: e.target.value })} /></label>
       <label class="row small">${t('To')} <input type="date" style="max-width:170px" value=${f.to} onInput=${e => setF({ ...f, to: e.target.value })} /></label>
     </div>
@@ -135,7 +135,7 @@ function UserForm({ u, onDone }) {
   const coord = s.user.role === 'coordinator';
   const [f, setF] = useState({ role: u.role || 'worker', name: u.name || '', phone: u.phone || '', email: u.email || '', organisation: u.organisation || '',
     state: u.state || (coord ? s.user.state : 'Kerala'), district: u.district || (coord ? s.user.district : ''), lsgd_type: u.lsgd_type || '', lsgd_name: u.lsgd_name || '', ward: u.ward || '',
-    reg_council: u.reg_council || 'Kerala State Dental Council', reg_number: u.reg_number || '', reg_verified: false, active: u.active !== 0, content_lang: u.content_lang || 'ml' });
+    reg_council: u.reg_council || 'Kerala State Dental Council', reg_number: u.reg_number || '', reg_verified: false, active: u.active !== 0, content_lang: u.content_lang || 'ml', pincode: u.pincode || '' });
   const set = k => e => setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
   const lsgds = (s.ref?.lsgds || []).filter(l => l.district === f.district && (!f.lsgd_type || l.kind === f.lsgd_type));
   useEffect(() => { loadRef(); }, []);
@@ -156,13 +156,13 @@ function UserForm({ u, onDone }) {
       <${Field} label=${t('Organisation')}><input type="text" value=${f.organisation} onInput=${set('organisation')} /><//></div>
     ${(f.role === 'worker' || f.role === 'coordinator') && html`
       <div class="grid-2"><${Field} label=${t('State')}><select value=${f.state} onChange=${set('state')} disabled=${coord}>${STATES.map(x => html`<option>${x}</option>`)}</select><//>
-        <${Field} label=${t('District')}>${f.state === 'Kerala' ? html`<select value=${f.district} onChange=${set('district')} disabled=${coord}><option value="">—</option>${KERALA_DISTRICTS.map(x => html`<option>${x}</option>`)}</select>`
-          : html`<input type="text" value=${f.district} onInput=${set('district')} />`}<//></div>
+        <${Field} label=${t('District')}><${DistrictInput} state=${f.state} value=${f.district} disabled=${coord} onChange=${x => setF({ ...f, district: x })} /><//></div>
       ${f.role === 'worker' && html`<div class="grid-3">
-        <${Field} label=${t('LSGD type')}><select value=${f.lsgd_type} onChange=${set('lsgd_type')}><option value="">—</option>${LSGD_TYPES.map(x => html`<option value=${x.key}>${x.en}</option>`)}</select><//>
+        <${Field} label=${t('LSGD type')}><select value=${f.lsgd_type} onChange=${set('lsgd_type')}><option value="">—</option>${LSGD_TYPES.map(x => html`<option value=${x.key}>${L(x)}</option>`)}</select><//>
         <${Field} label=${t('LSGD name')}><input type="text" list="u-lsgd" value=${f.lsgd_name} onInput=${set('lsgd_name')} /><datalist id="u-lsgd">${lsgds.map(l => html`<option value=${l.name} />`)}</datalist><//>
         <${Field} label=${t('Ward')}><input type="text" value=${f.ward} onInput=${set('ward')} /><//></div>
-        <${Field} label=${t('Reads and writes in')}><select value=${f.content_lang} onChange=${set('content_lang')}><option value="ml">മലയാളം</option><option value="ta">தமிழ்</option><option value="kn">ಕನ್ನಡ</option><option value="hi">हिन्दी</option><option value="en">English</option></select><//>`}`}
+        <${Field} label=${t('PIN code (optional)')}><input type="text" inputmode="numeric" maxlength="6" style="max-width:160px" value=${f.pincode} onInput=${set('pincode')} /><//>
+        <${Field} label=${t('Reads and writes in')}><select value=${f.content_lang} onChange=${set('content_lang')}>${LANGUAGES.map(l => html`<option value=${l.code}>${l.native}</option>`)}</select><//>`}`}
     ${f.role === 'dentist' && html`<div class="grid-2"><${Field} label=${t('Dental council')}><input type="text" value=${f.reg_council} onInput=${set('reg_council')} /><//>
       <${Field} label=${t('Registration number')}><input type="text" value=${f.reg_number} onInput=${set('reg_number')} /><//></div>
       <label class="choice"><input type="checkbox" checked=${f.reg_verified} onChange=${set('reg_verified')} /> ${t('I have checked this registration with the council')}</label>`}
@@ -176,7 +176,7 @@ const REF_DEFS = {
   referral_centres: { title: 'Referral centres', fields: [['name', 'Name'], ['kind', 'Type (e.g. Dental college, District hospital, PHC, Private)'], ['services', 'Services'], ['district', 'District'],
     ['address', 'Address'], ['timings', 'Timings'], ['phone', 'Phone'], ['cost_category', 'Cost (Free / Subsidised / Paid)'], ['accessibility', 'Accessibility (ramp, wheelchair)']], list: ['name', 'district', 'services'] },
   kb_items: { title: 'Knowledge base', fields: [['title', 'Title (English)'], ['title_ml', 'Title (Malayalam)'], ['kind', 'Kind', ['video', 'leaflet', 'pictogram', 'training']], ['url', 'Link (https://…)'],
-    ['language', 'Language', ['ml', 'en', 'ta', 'kn', 'hi']], ['audience', 'For', ['patient', 'caregiver', 'worker', 'dentist']], ['tags', 'Tags (comma separated)']], list: ['title', 'kind', 'audience'] },
+    ['language', 'Language', ['en', 'ml', 'ta', 'kn', 'te', 'hi', 'mr']], ['audience', 'For', ['patient', 'caregiver', 'worker', 'dentist']], ['tags', 'Tags (comma separated)']], list: ['title', 'kind', 'audience'] },
   glossary: { title: 'Glossary', fields: [['en', 'English term'], ['ml', 'Malayalam term'], ['notes', 'Notes']], list: ['en', 'ml'] },
   lsgds: { title: 'Local bodies (LSGDs)', fields: [['state', 'State'], ['district', 'District'], ['kind', 'Type', LSGD_TYPES.map(x => x.key)], ['name', 'Name'], ['name_ml', 'Name in Malayalam'], ['lgd_code', 'LGD code']], list: ['district', 'name', 'kind'] },
 };
