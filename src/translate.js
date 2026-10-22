@@ -27,8 +27,9 @@ export async function translate(env, text, src, tgt) {
     } catch (e) { console.error('indictrans2 failed', e.message); }
   }
   if (!out) {
+    const terms = await glossaryHits(env, text).catch(() => []);
     for (const model of LLM_MODELS) {
-      try { out = await llmTranslate(env, model, text, src, tgt); engine = model.split('/').pop(); if (out) break; }
+      try { out = await llmTranslate(env, model, text, src, tgt, terms); engine = model.split('/').pop(); if (out) break; }
       catch (e) { console.error(model, 'failed', e.message); }
     }
   }
@@ -50,9 +51,10 @@ function splitSentences(text) {
   return parts.length ? parts : [text];
 }
 
-async function llmTranslate(env, model, text, src, tgt) {
+async function llmTranslate(env, model, text, src, tgt, terms = []) {
+  const gl = terms.length ? ` Use these approved term pairs (English = Malayalam): ${terms.map(t => `${t.en} = ${t.ml}`).join('; ')}.` : '';
   const messages = [
-    { role: 'system', content: `You are a medical translator for a community dental programme for older people in India. Translate the user's text from ${LANG_NAMES[src] || src} to ${LANG_NAMES[tgt] || tgt}. Keep dental and medical meaning exact, keep numbers, tooth numbers, drug names and proper nouns unchanged. Output only the translation, with no notes or quotation marks.` },
+    { role: 'system', content: `You are a medical translator for a community dental programme for older people in India. Translate the user's text from ${LANG_NAMES[src] || src} to ${LANG_NAMES[tgt] || tgt}. Keep dental and medical meaning exact, keep numbers, tooth numbers, drug names and proper nouns unchanged. Translate faithfully: do not add, drop or generalise any detail.${gl} Output only the translation, with no notes or quotation marks.` },
     { role: 'user', content: text },
   ];
   const r = await env.AI.run(model, { messages, max_tokens: 1024, temperature: 0.1 });
