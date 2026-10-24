@@ -30,7 +30,20 @@ export function LIn(lang, obj) {
 }
 export function L(obj) { return LIn(uiLang(), obj); }
 // Advice text for a red flag in a language
-export function adviceIn(lang, r) { return lang === 'en' ? r.advice_en : (lang === 'ml' ? r.advice_ml : DICTS[lang]?.clinical?.[r.advice_en] || r.advice_en); }
+export function adviceIn(lang, r) { if (!r) return ''; return lang === 'en' ? r.advice_en : (r['advice_' + lang] || DICTS[lang]?.clinical?.[r.advice_en] || r.advice_en); }
+// A recorded answer to a questionnaire question, in the interface language.
+export function answerText(q, v) {
+  if (v == null || v === '') return null;
+  if (q.type === 'yesno') return v ? t('Yes') : t('No');
+  if (q.type === 'habit') return L(HABIT_OPTIONS.find(o => o.key === v)) || v;
+  if (q.type === 'choice') return L((q.options || []).find(o => o.key === v)) || v;
+  return String(v);
+}
+// "Label: answer" lines for one step's answers (yes/no questions answered "no" are left out to keep it short).
+export function answerLines(step, answers = {}) {
+  return QUESTIONS.filter(q => q.step === step && answers[q.key] != null && answers[q.key] !== '' && !(q.type === 'yesno' && answers[q.key] === false))
+    .map(q => (q.type === 'yesno' ? L(q) : `${L(q)}: ${answerText(q, answers[q.key])}`));
+}
 export async function useLanguage(code) {
   const pack = await loadLang(code);
   if (pack?.notice) registerNotice(code, pack);
@@ -44,11 +57,17 @@ export async function loadRef(force = false) {
   try {
     const ref = await api('/api/ref');
     try { localStorage.setItem('vs_ref', JSON.stringify(ref)); } catch { /* storage full or blocked */ }
+    applyQuestionnaire(ref.questionnaire);
     setState({ ref });
   } catch {
-    try { const cached = JSON.parse(localStorage.getItem('vs_ref') || 'null'); if (cached) setState({ ref: cached }); } catch { /* ignore */ }
+    try { const cached = JSON.parse(localStorage.getItem('vs_ref') || 'null'); if (cached) { applyQuestionnaire(cached.questionnaire); setState({ ref: cached }); } } catch { /* ignore */ }
   }
   return state.ref || { lsgds: [], referral_centres: [], kb_items: [], glossary: [], settings: {} };
+}
+
+export function roleName(r) {
+  return { superadmin: 'CIF super admin', admin: 'Administrator', clinical_admin: 'AGeD clinical admin', worker: 'Field worker', coordinator: 'Coordinator', dentist: 'Dentist',
+    auditor: 'Clinical auditor', dpo: 'Data protection lead', researcher: 'Researcher' }[r] || r;
 }
 
 // ---------------- routing ----------------
@@ -146,10 +165,13 @@ export function TranslatedText({ text, lang, target, show = true, label }) {
 }
 
 // ---------------- photos ----------------
-export function Thumbs({ images, labelFor }) {
+export function Thumbs({ images: all, labelFor }) {
   const [open, setOpen] = useState(null);
-  if (!images?.length) return html`<p class="muted">${t('No photos')}</p>`;
-  return html`<div class="thumbs">
+  const voices = (all || []).filter(i => i.view === 'voice_note');
+  const images = (all || []).filter(i => i.view !== 'voice_note');
+  const audio = voices.map(i => html`<div style="margin-bottom:8px"><span class="lbl">${t('Voice note')}</span><audio controls preload="none" src=${'/api/media/' + i.id} style="width:100%"></audio></div>`);
+  if (!images.length) return html`${audio}<p class="muted">${t('No photos')}</p>`;
+  return html`${audio}<div class="thumbs">
     ${images.map((im, i) => html`<button type="button" onClick=${() => setOpen(i)} aria-label=${t('Open photo') + ' ' + (labelFor ? labelFor(im.view) : im.view)}>
       <img src=${'/api/media/' + im.id} alt="" loading="lazy" /><span class="cap">${labelFor ? labelFor(im.view) : im.view}</span></button>`)}
   </div>
@@ -215,3 +237,8 @@ export function DistrictInput({ state: st, value, onChange, disabled }) {
   return html`<select value=${value || ''} disabled=${disabled} onChange=${e => { if (e.target.value === '__other') { setFree(true); onChange(''); } else onChange(e.target.value); }}>
     <option value="">—</option>${list.map(x => html`<option>${x}</option>`)}<option value="__other">${t('Other')}…</option></select>`;
 }
+
+import { QUESTIONS, HABIT_OPTIONS } from '/shared/clinical.js';
+import { applyQuestionnaire } from '/shared/questionnaire.js';
+// Use the questionnaire version saved on this phone straight away (works offline); /api/ref refreshes it.
+try { const c = JSON.parse(localStorage.getItem('vs_ref') || 'null'); if (c?.questionnaire) applyQuestionnaire(c.questionnaire); } catch { /* ignore */ }

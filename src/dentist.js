@@ -11,7 +11,7 @@ export async function queue(env, req, user) {
   requireRole(user, 'dentist');
   const { results } = await env.CLINICAL.prepare(
     `SELECT ${CASE_FIELDS}, s.complaints, s.ohat_total,
-       (SELECT COUNT(*) FROM images i WHERE i.case_id = c.id) AS photo_count,
+       (SELECT COUNT(*) FROM images i WHERE i.case_id = c.id AND i.view <> 'voice_note') AS photo_count,
        (SELECT COUNT(*) FROM cases p WHERE p.person_id = c.person_id AND p.id <> c.id) AS previous_visits
      FROM cases c LEFT JOIN screenings s ON s.case_id = c.id
      WHERE c.status = 'submitted' AND (c.claimed_by IS NULL OR c.claim_expires < datetime('now') OR c.claimed_by = ?)

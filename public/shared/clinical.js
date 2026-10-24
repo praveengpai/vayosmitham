@@ -137,6 +137,7 @@ export function flagMedicines(list) {
     const name = String(raw || '').toLowerCase();
     if (!name.trim()) continue;
     for (const g of MEDICINE_FLAGS) {
+      if (g.active === false) continue;
       if (g.names.some(n => name.includes(n))) out.push({ medicine: raw, flag: g.flag });
     }
   }
@@ -176,6 +177,62 @@ export const REFERRAL_TYPES = [
   { key: 'medical', en: 'Medical review (physician / PHC)', ml: 'മെഡിക്കൽ പരിശോധന (ഫിസിഷ്യൻ / PHC)' },
   { key: 'domiciliary', en: 'Home-based dental visit (bedbound)', ml: 'വീട്ടിലെത്തിയുള്ള ദന്ത പരിശോധന (കിടപ്പിലായവർക്ക്)' },
 ];
+
+// Questions on the teeth, health and habits steps. Editable by the AGeD clinical admin (see questionnaire.js).
+// step → where the answer is stored: teeth → screening.extra, health → screening.context, habits → screening.risks.
+// type: yesno | habit (never / stopped / now) | choice | number | text. states: show only for people in these states ([] = all).
+// when: 'denture' shows the question only if the person has an upper or lower denture.
+export const QUESTIONS = [
+  { key: 'denture_out_night', step: 'teeth', type: 'yesno', when: 'denture', en: 'Takes the dentures out at night' },
+  { key: 'denture_cleaning', step: 'teeth', type: 'choice', when: 'denture', en: 'How are the dentures cleaned?', options: [
+    { key: 'brush_soap_water', en: 'Brush with soap or water' }, { key: 'brush_paste', en: 'Brush with toothpaste' }, { key: 'soak', en: 'Soaked in denture cleaner' },
+    { key: 'rinse_only', en: 'Only rinsed with water' }, { key: 'not_cleaned', en: 'Not cleaned' }] },
+  { key: 'bedbound', step: 'health', type: 'yesno', en: 'Bedbound or housebound' },
+  { key: 'dementia', step: 'health', type: 'yesno', en: 'Memory problems / dementia' },
+  { key: 'swallowing_difficulty', step: 'health', type: 'yesno', en: 'Difficulty swallowing or choking' },
+  { key: 'diabetes', step: 'health', type: 'yesno', en: 'Diabetes' },
+  { key: 'stroke', step: 'health', type: 'yesno', en: 'Stroke or paralysis' },
+  { key: 'cancer_treatment', step: 'health', type: 'yesno', en: 'Cancer treatment now or before' },
+  { key: 'lives_alone', step: 'health', type: 'yesno', en: 'Lives alone' },
+  { key: 'needs_help_cleaning', step: 'health', type: 'yesno', en: 'Needs help to clean teeth or dentures' },
+  { key: 'weight_loss', step: 'health', type: 'yesno', en: 'Recent weight loss or poor appetite' },
+  { key: 'palliative', step: 'health', type: 'yesno', en: 'Under palliative care' },
+  { key: 'tobacco_chew', step: 'habits', type: 'habit', en: 'Chewing tobacco, pan, gutka' },
+  { key: 'khaini', step: 'habits', type: 'habit', en: 'Khaini (tobacco with lime)' },
+  { key: 'mishri', step: 'habits', type: 'habit', states: ['Maharashtra'], en: 'Mishri (roasted tobacco rubbed on teeth)' },
+  { key: 'kharra_mawa', step: 'habits', type: 'habit', states: ['Maharashtra'], en: 'Kharra or mawa' },
+  { key: 'areca', step: 'habits', type: 'habit', en: 'Areca nut (adakka)' },
+  { key: 'tobacco_smoke', step: 'habits', type: 'habit', en: 'Smoking (beedi, cigarette)' },
+  { key: 'alcohol', step: 'habits', type: 'habit', en: 'Alcohol' },
+  { key: 'sugar_per_day', step: 'habits', type: 'number', min: 0, max: 20, en: 'Sweet things or sweet tea/coffee — times a day' },
+  { key: 'brushing', step: 'habits', type: 'choice', en: 'Cleans teeth or dentures', options: [
+    { key: 'twice', en: 'Twice a day' }, { key: 'once', en: 'Once a day' }, { key: 'irregular', en: 'Sometimes' }, { key: 'never', en: 'Never' }, { key: 'assisted', en: 'Someone helps' }] },
+  { key: 'brush_aid', step: 'habits', type: 'choice', en: 'Cleans with', options: [
+    { key: 'toothbrush', en: 'Toothbrush' }, { key: 'finger', en: 'Finger' }, { key: 'neem_stick', en: 'Neem/twig' }, { key: 'charcoal_powder', en: 'Charcoal or powder' }, { key: 'other', en: 'Other' }] },
+  { key: 'fluoride_paste', step: 'habits', type: 'yesno', en: 'Uses fluoride toothpaste' },
+  { key: 'last_dental_visit', step: 'habits', type: 'choice', en: 'Last visit to a dentist', options: [
+    { key: '<1y', en: 'Within a year' }, { key: '1-3y', en: '1–3 years' }, { key: '>3y', en: 'More than 3 years' }, { key: 'never', en: 'Never' }] },
+];
+export const QUESTION_STEPS = { teeth: 'extra', health: 'context', habits: 'risks' };
+export const HABIT_OPTIONS = [{ key: 'never', en: 'Never' }, { key: 'former', en: 'Stopped' }, { key: 'current', en: 'Now' }];
+
+// Questions to show for a person: active, matching their state, and their denture status.
+export function questionsFor(step, { state, hasDenture } = {}) {
+  return QUESTIONS.filter(q => q.step === step && q.active !== false && (!q.states?.length || q.states.includes(state)) && (q.when !== 'denture' || hasDenture));
+}
+// Clean answers for one step against the question list (unknown keys dropped; retired questions still accepted).
+export function cleanAnswers(step, src = {}) {
+  const out = {};
+  for (const q of QUESTIONS.filter(q => q.step === step)) {
+    const v = src?.[q.key];
+    if (q.type === 'yesno') out[q.key] = v === true ? true : v === false ? false : null;
+    else if (q.type === 'habit') out[q.key] = HABIT_OPTIONS.some(o => o.key === v) ? v : null;
+    else if (q.type === 'choice') out[q.key] = (q.options || []).some(o => o.key === v) ? v : null;
+    else if (q.type === 'number') { const n = Number(v); out[q.key] = v !== '' && v != null && Number.isInteger(n) && n >= (q.min ?? 0) && n <= (q.max ?? 999) ? n : null; }
+    else if (q.type === 'text') { const s = String(v ?? '').trim().slice(0, 300); out[q.key] = s || null; }
+  }
+  return out;
+}
 
 export const STATES = ['Kerala', 'Tamil Nadu', 'Karnataka', 'Andhra Pradesh', 'Telangana', 'Maharashtra', 'Puducherry', 'Goa', 'Other'];
 export const DISTRICTS = {

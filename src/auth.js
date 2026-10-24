@@ -92,5 +92,7 @@ export function publicUser(u) {
 export function requireRole(user, ...roles) {
   if (!user) throw new HttpError(401, 'Please sign in');
   if (user.must_change) throw new HttpError(403, 'Please set a new PIN first', 'must_change');
-  if (!roles.includes(user.role)) throw new HttpError(403, 'Not allowed for your role');
+  if (!roles.includes(user.role) && !(user.role === 'superadmin' && roles.some(r => SUPER_COVERS.includes(r)))) throw new HttpError(403, 'Not allowed for your role');
 }
+// The CIF super admin can do everything an admin, clinical admin, auditor, data protection lead or researcher can.
+const SUPER_COVERS = ['admin', 'clinical_admin', 'auditor', 'dpo', 'researcher'];

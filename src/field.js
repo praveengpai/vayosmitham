@@ -3,7 +3,8 @@ import { HttpError, json, body, personId, caseId, uid, str, int, oneOf, parseJSO
 import { requireRole } from './auth.js';
 import { putMedia, cleanJpeg } from './media.js';
 import { KNOWN_VERSIONS } from '../public/shared/consent.js';
-import { triage, flagMedicines, ohatTotal, gohaiTotal, ageBand, OHAT_ITEMS, COMPLAINTS, PHOTO_VIEWS, LOCATION_OVERRIDE_REASONS, LSGD_TYPES, detectLang, LANG_CODES, validPincode } from '../public/shared/clinical.js';
+import { triage, flagMedicines, ohatTotal, gohaiTotal, ageBand, OHAT_ITEMS, COMPLAINTS, PHOTO_VIEWS, LOCATION_OVERRIDE_REASONS, LSGD_TYPES, detectLang, LANG_CODES, validPincode, cleanAnswers } from '../public/shared/clinical.js';
+import { questionnaireVersion } from '../public/shared/questionnaire.js';
 
 const FIELD_ROLES = ['worker', 'coordinator', 'admin'];
 
@@ -11,7 +12,7 @@ const FIELD_ROLES = ['worker', 'coordinator', 'admin'];
 async function personAccess(env, user, pid) {
   const p = await env.IDENTITY.prepare('SELECT * FROM persons WHERE id = ?').bind(pid).first();
   if (!p) throw new HttpError(404, 'Person not found');
-  if (user.role === 'admin') return p;
+  if (user.role === 'admin' || user.role === 'superadmin') return p;
   if (user.role === 'worker' && p.worker_id === user.id) return p;
   if (user.role === 'coordinator' && p.district === user.district) return p;
   throw new HttpError(403, 'This person is not in your list');
@@ -169,38 +170,17 @@ export async function submitVisit(env, req, user) {
       ageBand(person.birth_year), person.sex, person.district, person.lsgd_type, ctx.bedbound ? 1 : 0),
     env.CLINICAL.prepare(
       `INSERT INTO screenings (case_id, ohat, ohat_total, gohai, gohai_total, natural_teeth, functional_dentition, denture_upper, denture_lower, denture_fit,
-        complaints, complaint_text, complaint_lang, risks, context, medicines, medicine_flags, worker_notes, worker_notes_lang)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(cid, JSON.stringify(ohat), ohatTotal(ohat), gohai ? JSON.stringify(gohai) : null, gTotal,
+        complaints, complaint_text, complaint_lang, risks, context, medicines, medicine_flags, worker_notes, worker_notes_lang, extra, questionnaire_version)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(cid, JSON.stringify(ohat), ohatTotal(ohat), gohai ? JSON.stringify(gohai) : null, gTotal,
       teeth, teeth == null ? null : (teeth >= 20 ? 1 : 0), oneOf(s.denture_upper, ['none', 'complete', 'partial'], null), oneOf(s.denture_lower, ['none', 'complete', 'partial'], null),
       oneOf(s.denture_fit, ['good', 'loose', 'painful', 'broken', 'not_worn'], null), JSON.stringify(complaints), complaintText, complaintText ? detectLang(complaintText, user.content_lang) : null,
-      JSON.stringify(sanitizeRisks(s.risks)), JSON.stringify(sanitizeContext(ctx)), JSON.stringify(medicines), JSON.stringify(flagMedicines(medicines)),
-      notes, notes ? detectLang(notes, user.content_lang) : null),
+      JSON.stringify(cleanAnswers('habits', s.risks)), JSON.stringify(cleanAnswers('health', ctx)), JSON.stringify(medicines), JSON.stringify(flagMedicines(medicines)),
+      notes, notes ? detectLang(notes, user.content_lang) : null, JSON.stringify(cleanAnswers('teeth', s.extra)),
+      int(b.questionnaire_version, 1, questionnaireVersion()) || questionnaireVersion()),
     env.CLINICAL.prepare("UPDATE followups SET status='done', done_case_id=? WHERE person_id=? AND status='due' AND due_date <= date('now', '+30 day')").bind(cid, person.id),
   ]);
   await audit(env, user, 'case.submit', 'case', cid, { person: person.id, urgency });
   return json({ case_id: cid, person_id: person.id, urgency, red_flags });
-}
-
-function sanitizeRisks(r = {}) {
-  return {
-    tobacco_smoke: oneOf(r.tobacco_smoke, ['never', 'former', 'current'], null),
-    tobacco_chew: oneOf(r.tobacco_chew, ['never', 'former', 'current'], null),
-    areca: oneOf(r.areca, ['never', 'former', 'current'], null),
-    alcohol: oneOf(r.alcohol, ['never', 'former', 'current'], null),
-    sugar_per_day: int(r.sugar_per_day, 0, 20),
-    brushing: oneOf(r.brushing, ['twice', 'once', 'irregular', 'never', 'assisted'], null),
-    brush_aid: oneOf(r.brush_aid, ['toothbrush', 'finger', 'neem_stick', 'charcoal_powder', 'other', 'none'], null),
-    fluoride_paste: r.fluoride_paste === true ? true : r.fluoride_paste === false ? false : null,
-    last_dental_visit: oneOf(r.last_dental_visit, ['<1y', '1-3y', '>3y', 'never'], null),
-  };
-}
-function sanitizeContext(c = {}) {
-  const b = v => (v === true ? true : v === false ? false : null);
-  return {
-    bedbound: b(c.bedbound), dementia: b(c.dementia), swallowing_difficulty: b(c.swallowing_difficulty), diabetes: b(c.diabetes),
-    stroke: b(c.stroke), cancer_treatment: b(c.cancer_treatment), lives_alone: b(c.lives_alone), needs_help_cleaning: b(c.needs_help_cleaning),
-    weight_loss: b(c.weight_loss), palliative: b(c.palliative),
-  };
 }
 
 export async function uploadImage(env, req, user, cid) {
@@ -215,7 +195,7 @@ export async function uploadImage(env, req, user, cid) {
   const imgUuid = str(url.searchParams.get('client_uuid'), 64);
   const already = imgUuid ? await env.CLINICAL.prepare('SELECT id FROM images WHERE id = ?').bind('IM-' + imgUuid).first() : null;
   if (already) return json({ id: already.id, duplicate: true });
-  const count = await env.CLINICAL.prepare('SELECT COUNT(*) AS n FROM images WHERE case_id = ?').bind(c.id).first();
+  const count = await env.CLINICAL.prepare("SELECT COUNT(*) AS n FROM images WHERE case_id = ? AND view <> 'voice_note'").bind(c.id).first();
   if (count.n >= 10) throw new HttpError(409, 'Maximum 10 photos per case');
   const bytes = cleanJpeg(await req.arrayBuffer());
   const id = imgUuid ? 'IM-' + imgUuid : uid('IM-');
@@ -224,6 +204,29 @@ export async function uploadImage(env, req, user, cid) {
   await env.CLINICAL.prepare('INSERT INTO images (id, case_id, view, media_key, width, height, bytes, quality) VALUES (?,?,?,?,?,?,?,?)')
     .bind(id, c.id, view, key, int(url.searchParams.get('w'), 1, 10000), int(url.searchParams.get('h'), 1, 10000), bytes.length,
       Number(url.searchParams.get('q')) || null).run();
+  return json({ id });
+}
+
+// Voice note about the complaint, recorded by the field worker in her own voice (not the older person's).
+const AUDIO_TYPES = ['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/mpeg', 'audio/aac'];
+export async function uploadVoice(env, req, user, cid) {
+  requireRole(user, 'worker', 'coordinator');
+  const { c } = await caseAccess(env, user, cid);
+  const mime = (req.headers.get('content-type') || '').split(';')[0].trim();
+  if (!AUDIO_TYPES.includes(mime)) throw new HttpError(415, 'Unsupported audio format');
+  const url = new URL(req.url);
+  const vUuid = str(url.searchParams.get('client_uuid'), 64);
+  const already = vUuid ? await env.CLINICAL.prepare('SELECT id FROM images WHERE id = ?').bind('VN-' + vUuid).first() : null;
+  if (already) return json({ id: already.id, duplicate: true });
+  const count = await env.CLINICAL.prepare("SELECT COUNT(*) AS n FROM images WHERE case_id = ? AND view = 'voice_note'").bind(c.id).first();
+  if (count.n >= 1) throw new HttpError(409, 'This visit already has a voice note');
+  const bytes = new Uint8Array(await req.arrayBuffer());
+  if (bytes.length > 1_500_000) throw new HttpError(413, 'Voice note is too long (max 2 minutes)');
+  if (bytes.length < 200) throw new HttpError(400, 'Voice note is empty');
+  const id = vUuid ? 'VN-' + vUuid : uid('VN-');
+  const key = `cases/${c.id}/${id}`;
+  await putMedia(env, key, bytes, mime);
+  await env.CLINICAL.prepare("INSERT INTO images (id, case_id, view, media_key, mime, bytes) VALUES (?,?,'voice_note',?,?,?)").bind(id, c.id, key, mime, bytes.length).run();
   return json({ id });
 }
 
@@ -329,7 +332,7 @@ export async function getCaseForWorker(env, req, user, cid) {
 
 export function expandScreening(s) {
   return { ...s, ohat: parseJSON(s.ohat, {}), gohai: parseJSON(s.gohai, null), complaints: parseJSON(s.complaints, []), risks: parseJSON(s.risks, {}),
-    context: parseJSON(s.context, {}), medicines: parseJSON(s.medicines, []), medicine_flags: parseJSON(s.medicine_flags, []) };
+    context: parseJSON(s.context, {}), medicines: parseJSON(s.medicines, []), medicine_flags: parseJSON(s.medicine_flags, []), extra: parseJSON(s.extra, {}) };
 }
 
 function publicOpinion(o) {

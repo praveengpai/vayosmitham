@@ -1,4 +1,4 @@
-import { html, render, useState, useEffect, state, setState, useAppState, useRoute, go, t, toast, Field, Logo, Icon, loadRef, Switch, useLanguage, uiLang } from './ui.js';
+import { html, render, useState, useEffect, state, setState, useAppState, useRoute, go, t, toast, Field, Logo, Icon, loadRef, Switch, useLanguage, uiLang, roleName } from './ui.js';
 import { api, unlockVault, vaultUnlocked, vaultOwner, listOutbox, syncOutbox, rekeyVault, lockVault } from './api.js';
 import { WorkerHome, PeopleList, PersonView, CaseView, Outbox } from './field.js';
 import { VisitWizard } from './visit.js';
@@ -106,9 +106,7 @@ function Frame({ children }) {
     </nav>`}`;
 }
 
-export function roleName(r) {
-  return { worker: 'Field worker', coordinator: 'Coordinator', dentist: 'Dentist', admin: 'Administrator', auditor: 'Clinical auditor', dpo: 'Data protection lead', researcher: 'Researcher' }[r] || r;
-}
+export { roleName };
 
 // ---------- sign in ----------
 function Login() {

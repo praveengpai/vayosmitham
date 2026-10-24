@@ -623,7 +623,27 @@ export default {
   "Include consent form": "സമ്മതപത്രം ഉൾപ്പെടുത്തുക",
   "Print / Save PDF": "അച്ചടിക്കുക / PDF ആയി സൂക്ഷിക്കുക",
   "Translation of the approved English notice. If there is any difference, the English text prevails.": "അംഗീകരിച്ച ഇംഗ്ലീഷ് അറിയിപ്പിന്റെ വിവർത്തനം. എന്തെങ്കിലും വ്യത്യാസമുണ്ടെങ്കിൽ, ഇംഗ്ലീഷ് പാഠമാണ് ആധികാരികം.",
-  "Write in English or your own language. The field worker sees a translation into her language. Write plainly — it will be shown to the older person.": "ഇംഗ്ലീഷിലോ നിങ്ങളുടെ സ്വന്തം ഭാഷയിലോ എഴുതുക. ഫീൽഡ് പ്രവർത്തകയ്ക്ക് അവരുടെ ഭാഷയിലുള്ള വിവർത്തനം കാണാം. ലളിതമായി എഴുതുക — ഇത് പ്രായമായ വ്യക്തിയെ കാണിക്കും."
+  "Write in English or your own language. The field worker sees a translation into her language. Write plainly — it will be shown to the older person.": "ഇംഗ്ലീഷിലോ നിങ്ങളുടെ സ്വന്തം ഭാഷയിലോ എഴുതുക. ഫീൽഡ് പ്രവർത്തകയ്ക്ക് അവരുടെ ഭാഷയിലുള്ള വിവർത്തനം കാണാം. ലളിതമായി എഴുതുക — ഇത് പ്രായമായ വ്യക്തിയെ കാണിക്കും.",
+  "Voice note for the dentist (optional)": "ദന്ത ഡോക്ടർക്കുള്ള ശബ്ദസന്ദേശം (നിർബന്ധമില്ല)",
+  "Describe the problem in your own voice, up to 2 minutes. Do not record the older person and do not say their name.": "പ്രശ്നം നിങ്ങളുടെ സ്വന്തം ശബ്ദത്തിൽ, 2 മിനിറ്റ് വരെ, വിവരിക്കുക. പ്രായമായ വ്യക്തിയുടെ ശബ്ദം റെക്കോർഡ് ചെയ്യരുത്; അവരുടെ പേര് പറയരുത്.",
+  "Record voice": "ശബ്ദം റെക്കോർഡ് ചെയ്യുക",
+  "Stop": "നിർത്തുക",
+  "Could not use the microphone": "മൈക്രോഫോൺ ഉപയോഗിക്കാൻ കഴിഞ്ഞില്ല",
+  "Voice note": "ശബ്ദസന്ദേശം",
+  "Takes the dentures out at night": "രാത്രി പല്ല്സെറ്റ് ഊരിവയ്ക്കാറുണ്ട്",
+  "How are the dentures cleaned?": "പല്ല്സെറ്റ് എങ്ങനെയാണ് വൃത്തിയാക്കുന്നത്?",
+  "Brush with soap or water": "ബ്രഷും സോപ്പോ വെള്ളമോ ഉപയോഗിച്ച്",
+  "Brush with toothpaste": "ബ്രഷും ടൂത്ത്പേസ്റ്റും ഉപയോഗിച്ച്",
+  "Soaked in denture cleaner": "പല്ല്സെറ്റ് ക്ലീനർ ലായനിയിൽ മുക്കിവയ്ക്കുന്നു",
+  "Only rinsed with water": "വെള്ളത്തിൽ കഴുകുക മാത്രം",
+  "Not cleaned": "വൃത്തിയാക്കാറില്ല",
+  "Khaini (tobacco with lime)": "ഖൈനി (ചുണ്ണാമ്പ് ചേർത്ത പുകയില)",
+  "Mishri (roasted tobacco rubbed on teeth)": "മിശ്രി (വറുത്ത പുകയില പല്ലിൽ തേയ്ക്കൽ)",
+  "Kharra or mawa": "ഖർറ അല്ലെങ്കിൽ മാവ",
+  "CIF super admin": "CIF സൂപ്പർ അഡ്മിൻ",
+  "AGeD clinical admin": "AGeD ക്ലിനിക്കൽ അഡ്മിൻ",
+  "Dentists and auditors": "ദന്ത ഡോക്ടർമാരും ഓഡിറ്റർമാരും",
+  "Questionnaire": "ചോദ്യാവലി"
  },
  "clinical": {}
 };

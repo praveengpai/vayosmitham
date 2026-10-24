@@ -1,18 +1,30 @@
 // Admin, coordinator, auditor, DPO and researcher endpoints.
 import { HttpError, json, body, uid, str, int, oneOf, parseJSON, audit, getSettings, sha256, randomCode } from './util.js';
 import { requireRole, hashPin, normPhone, validPin } from './auth.js';
-import { LSGD_TYPES, LANG_CODES, validPincode } from '../public/shared/clinical.js';
+import { LSGD_TYPES, LANG_CODES, validPincode, QUESTIONS, QUESTION_STEPS } from '../public/shared/clinical.js';
 import { expandScreening } from './field.js';
 
-const ROLES = ['admin', 'coordinator', 'worker', 'dentist', 'auditor', 'dpo', 'researcher'];
+const ROLES = ['superadmin', 'admin', 'clinical_admin', 'coordinator', 'worker', 'dentist', 'auditor', 'dpo', 'researcher'];
+// Which accounts each role may create, edit and reset. CIF super admin: everyone. CIF admin: field programme staff.
+// AGeD clinical admin: volunteer dentists and clinical auditors. Coordinator: field workers in her district.
+export const MANAGES = {
+  superadmin: ROLES,
+  admin: ['coordinator', 'worker', 'dpo', 'researcher'],
+  clinical_admin: ['dentist', 'auditor'],
+  coordinator: ['worker'],
+};
+const canManage = (user, role) => (MANAGES[user.role] || []).includes(role);
+const AGED = 'Association of Geriatric Dentistry (AGeD)';
 
 // ---------- users ----------
 export async function listUsers(env, req, user) {
-  requireRole(user, 'admin', 'coordinator');
+  requireRole(user, 'admin', 'coordinator', 'clinical_admin');
   let sql = `SELECT id, role, name, phone, email, active, organisation, state, district, lsgd_type, lsgd_name, ward, pincode, reg_council, reg_number, reg_verified_at,
     trained_at, must_change, created_at FROM users`;
   const args = [];
-  if (user.role === 'coordinator') { sql += " WHERE district = ? AND role = 'worker'"; args.push(user.district); }
+  const roles = MANAGES[user.role];
+  sql += ` WHERE role IN (${roles.map(() => '?').join(',')})`; args.push(...roles);
+  if (user.role === 'coordinator') { sql += ' AND district = ?'; args.push(user.district); }
   sql += ' ORDER BY role, name';
   const { results } = await env.IDENTITY.prepare(sql).bind(...args).all();
   return json({ users: results });
@@ -46,10 +58,12 @@ function tempPin() {
 }
 
 export async function createUser(env, req, user) {
-  requireRole(user, 'admin', 'coordinator');
+  requireRole(user, 'admin', 'coordinator', 'clinical_admin');
   const b = await body(req);
   if (user.role === 'coordinator') { b.role = 'worker'; b.district = user.district; b.state = user.state; }
+  if (user.role === 'clinical_admin' && !str(b.organisation)) b.organisation = AGED;
   const u = cleanUser(b);
+  if (!canManage(user, u.role)) throw new HttpError(403, 'You cannot create this kind of account');
   const exists = await env.IDENTITY.prepare('SELECT 1 FROM users WHERE phone = ?').bind(u.phone).first();
   if (exists) throw new HttpError(409, 'A user with this mobile number already exists');
   const pin = tempPin();
@@ -65,14 +79,19 @@ export async function createUser(env, req, user) {
 }
 
 export async function updateUser(env, req, user, id) {
-  requireRole(user, 'admin', 'coordinator');
+  requireRole(user, 'admin', 'coordinator', 'clinical_admin');
   const existing = await env.IDENTITY.prepare('SELECT * FROM users WHERE id = ?').bind(id).first();
   if (!existing) throw new HttpError(404, 'User not found');
-  if (user.role === 'coordinator' && (existing.role !== 'worker' || existing.district !== user.district)) throw new HttpError(403, 'Not allowed');
+  if (!canManage(user, existing.role) || (user.role === 'coordinator' && existing.district !== user.district)) throw new HttpError(403, 'Not allowed');
   const b = await body(req);
   if (user.role === 'coordinator') { b.role = 'worker'; b.district = user.district; }
   const u = cleanUser(b, existing);
-  if (id === user.id && (u.role !== 'admin' || b.active === false)) throw new HttpError(400, 'You cannot remove your own admin access');
+  if (!canManage(user, u.role)) throw new HttpError(403, 'You cannot give this role');
+  if (id === user.id && (u.role !== existing.role || b.active === false)) throw new HttpError(400, 'You cannot change your own role or deactivate yourself');
+  if (existing.role === 'superadmin' && (u.role !== 'superadmin' || b.active === false)) {
+    const others = await env.IDENTITY.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'superadmin' AND active = 1 AND id <> ?").bind(id).first();
+    if (!others.n) throw new HttpError(400, 'There must always be at least one active CIF super admin');
+  }
   await env.IDENTITY.prepare(
     `UPDATE users SET role=?, name=?, phone=?, email=?, organisation=?, state=?, district=?, lsgd_type=?, lsgd_name=?, ward=?, reg_council=?, reg_number=?,
        reg_verified_at = CASE WHEN ? THEN date('now') ELSE reg_verified_at END, active=?, trained_at = CASE WHEN ? THEN date('now') ELSE trained_at END,
@@ -85,10 +104,10 @@ export async function updateUser(env, req, user, id) {
 }
 
 export async function resetPin(env, req, user, id) {
-  requireRole(user, 'admin', 'coordinator');
+  requireRole(user, 'admin', 'coordinator', 'clinical_admin');
   const existing = await env.IDENTITY.prepare('SELECT * FROM users WHERE id = ?').bind(id).first();
   if (!existing) throw new HttpError(404, 'User not found');
-  if (user.role === 'coordinator' && (existing.role !== 'worker' || existing.district !== user.district)) throw new HttpError(403, 'Not allowed');
+  if (!canManage(user, existing.role) || (user.role === 'coordinator' && existing.district !== user.district)) throw new HttpError(403, 'Not allowed');
   const pin = tempPin();
   const { hash, salt } = await hashPin(pin);
   await env.IDENTITY.batch([
@@ -101,7 +120,7 @@ export async function resetPin(env, req, user, id) {
 
 // ---------- dashboard ----------
 export async function dashboard(env, req, user) {
-  requireRole(user, 'admin', 'coordinator', 'dpo');
+  requireRole(user, 'admin', 'coordinator', 'dpo', 'clinical_admin');
   const url = new URL(req.url);
   const district = user.role === 'coordinator' ? user.district : str(url.searchParams.get('district'), 60);
   const from = str(url.searchParams.get('from'), 10) || '2000-01-01';
@@ -148,7 +167,7 @@ export async function dashboard(env, req, user) {
 }
 
 export async function indicatorsCsv(env, req, user) {
-  requireRole(user, 'admin', 'coordinator', 'researcher');
+  requireRole(user, 'admin', 'coordinator', 'researcher', 'clinical_admin');
   const res = await dashboard(env, req, { ...user, role: user.role === 'researcher' ? 'admin' : user.role, must_change: false });
   const d = await res.json();
   const t = d.small_cell_threshold;
@@ -177,21 +196,21 @@ export async function researchExtract(env, req, user) {
   const allowed = new Set(consented.map(r => r.person_id));
   const { results } = await env.CLINICAL.prepare(
     `SELECT c.person_id, c.visit_type, c.urgency, c.age_band, c.sex, c.district, c.bedbound, substr(c.submitted_at,1,7) AS month,
-       s.ohat, s.ohat_total, s.gohai_total, s.natural_teeth, s.functional_dentition, s.denture_upper, s.denture_lower, s.denture_fit, s.risks, s.context,
+       s.ohat, s.ohat_total, s.gohai_total, s.natural_teeth, s.functional_dentition, s.denture_upper, s.denture_lower, s.denture_fit, s.risks, s.context, s.extra, s.questionnaire_version,
        o.referral_needed, o.referral_type, r.status AS referral_status
      FROM cases c JOIN screenings s ON s.case_id = c.id LEFT JOIN opinions o ON o.case_id = c.id AND o.superseded_by IS NULL
      LEFT JOIN referrals r ON r.case_id = c.id WHERE c.status <> 'withdrawn' ORDER BY c.person_id, c.submitted_at`).all();
   const salt = (await env.CLINICAL.prepare("SELECT value FROM settings WHERE key='research_salt'").first())?.value || randomCode(16);
   await env.CLINICAL.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('research_salt', ?)").bind(salt).run();
   const header = ['subject', 'visit_type', 'month', 'age_band', 'sex', 'district', 'bedbound', 'urgency', 'ohat_total', 'gohai_total', 'natural_teeth', 'functional_dentition',
-    'denture_upper', 'denture_lower', 'denture_fit', 'tobacco_chew', 'tobacco_smoke', 'areca', 'dementia', 'diabetes', 'referral_needed', 'referral_type', 'referral_status'];
+    'denture_upper', 'denture_lower', 'denture_fit', 'referral_needed', 'referral_type', 'referral_status', 'questionnaire_version', ...QUESTIONS.map(q => q.key)];
   const rows = [header];
   for (const r of results) {
     if (!allowed.has(r.person_id)) continue;
-    const risks = parseJSON(r.risks, {}), ctx = parseJSON(r.context, {});
+    const answers = { extra: parseJSON(r.extra, {}), context: parseJSON(r.context, {}), risks: parseJSON(r.risks, {}) };
     rows.push([(await sha256(salt + r.person_id)).slice(0, 12), r.visit_type, r.month, r.age_band, r.sex, r.district, r.bedbound, r.urgency, r.ohat_total, r.gohai_total,
-      r.natural_teeth, r.functional_dentition, r.denture_upper, r.denture_lower, r.denture_fit, risks.tobacco_chew, risks.tobacco_smoke, risks.areca, ctx.dementia, ctx.diabetes,
-      r.referral_needed, r.referral_type, r.referral_status]);
+      r.natural_teeth, r.functional_dentition, r.denture_upper, r.denture_lower, r.denture_fit, r.referral_needed, r.referral_type, r.referral_status, r.questionnaire_version,
+      ...QUESTIONS.map(q => answers[QUESTION_STEPS[q.step]][q.key])]);
   }
   await audit(env, user, 'export.research', null, null, { rows: rows.length - 1 });
   return new Response(rows.map(l => l.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n'), {
@@ -227,8 +246,12 @@ const TABLES = {
   lsgds: { cols: ['state', 'district', 'kind', 'name', 'name_ml', 'lgd_code'], prefix: 'LS-', required: ['state', 'district', 'kind', 'name'] },
 };
 
+// The AGeD clinical admin looks after clinical content (education items, glossary); CIF admins look after the rest.
+const CLINICAL_TABLES = ['kb_items', 'glossary'];
+const refRoles = table => (CLINICAL_TABLES.includes(table) ? ['admin', 'clinical_admin'] : ['admin']);
+
 export async function upsertRef(env, req, user, table, id) {
-  requireRole(user, 'admin');
+  requireRole(user, ...refRoles(table));
   const t = TABLES[table];
   if (!t) throw new HttpError(404, 'Unknown list');
   const b = await body(req);
@@ -247,7 +270,7 @@ export async function upsertRef(env, req, user, table, id) {
 }
 
 export async function deleteRef(env, req, user, table, id) {
-  requireRole(user, 'admin');
+  requireRole(user, ...refRoles(table));
   if (!TABLES[table]) throw new HttpError(404, 'Unknown list');
   if (table === 'kb_items' || table === 'referral_centres') await env.CLINICAL.prepare(`UPDATE ${table} SET active = 0 WHERE id = ?`).bind(id).run();
   else await env.CLINICAL.prepare(`DELETE FROM ${table} WHERE id = ?`).bind(id).run();
@@ -256,7 +279,7 @@ export async function deleteRef(env, req, user, table, id) {
 }
 
 export async function approveKb(env, req, user, id) {
-  requireRole(user, 'admin', 'auditor');
+  requireRole(user, 'admin', 'auditor', 'clinical_admin');
   await env.CLINICAL.prepare("UPDATE kb_items SET approved_by = ?, approved_at = datetime('now') WHERE id = ?").bind(user.id, id).run();
   await audit(env, user, 'kb.approve', 'kb_items', id);
   return json({ ok: true });
@@ -279,8 +302,9 @@ export async function importLsgds(env, req, user) {
 export async function saveSettings(env, req, user) {
   requireRole(user, 'admin');
   const b = await body(req);
+  // Details printed in the legal privacy notice can only be changed by the CIF super admin.
   const allowed = ['claim_minutes', 'sla_urgent_hours', 'sla_routine_hours', 'audit_sample_percent', 'small_cell_threshold',
-    'org_legal_name', 'org_address', 'grievance_name', 'grievance_phone', 'grievance_email', 'retention_years', 'grievance_days'];
+    ...(user.role === 'superadmin' ? ['org_legal_name', 'org_address', 'grievance_name', 'grievance_phone', 'grievance_email', 'retention_years', 'grievance_days'] : [])];
   const stmts = [];
   for (const k of allowed) if (b[k] != null) stmts.push(env.CLINICAL.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?,?)').bind(k, String(b[k]).slice(0, 300)));
   if (stmts.length) await env.CLINICAL.batch(stmts);
@@ -290,7 +314,7 @@ export async function saveSettings(env, req, user) {
 
 // ---------- clinical audit (AGeD) ----------
 export async function auditQueue(env, req, user) {
-  requireRole(user, 'auditor', 'admin');
+  requireRole(user, 'auditor', 'admin', 'clinical_admin');
   const { results } = await env.CLINICAL.prepare(
     `SELECT o.id, o.case_id, o.dentist_id, o.impression, o.referral_needed, o.signed_at, c.age_band, c.sex, c.urgency, c.district,
        a.rating, a.safe, a.notes AS audit_notes
@@ -303,7 +327,7 @@ export async function auditQueue(env, req, user) {
 }
 
 export async function auditCase(env, req, user, oid) {
-  requireRole(user, 'auditor', 'admin');
+  requireRole(user, 'auditor', 'admin', 'clinical_admin');
   const o = await env.CLINICAL.prepare('SELECT * FROM opinions WHERE id = ?').bind(oid).first();
   if (!o) throw new HttpError(404, 'Not found');
   const [c, s, images, a] = await Promise.all([
@@ -319,7 +343,7 @@ export async function auditCase(env, req, user, oid) {
 }
 
 export async function saveAudit(env, req, user, oid) {
-  requireRole(user, 'auditor', 'admin');
+  requireRole(user, 'auditor', 'admin', 'clinical_admin');
   const b = await body(req);
   const rating = int(b.rating, 1, 5);
   if (!rating) throw new HttpError(400, 'Give a rating from 1 to 5');

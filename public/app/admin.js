@@ -1,17 +1,30 @@
 // Administration, coordinator dashboard, clinical audit, data protection and research exports.
-import { html, useState, useEffect, state, useAppState, go, t, L, toast, DistrictInput, useLoad, Loading, Field, Choices, Thumbs, fmtDate, ago, UrgencyChip, loadRef } from './ui.js';
+import { html, useState, useEffect, state, useAppState, go, t, L, toast, DistrictInput, useLoad, Loading, Field, Choices, Thumbs, fmtDate, ago, UrgencyChip, loadRef, roleName } from './ui.js';
 import { api } from './api.js';
 import { ScreeningSummary } from './field.js';
 import { STATES, ALL_DISTRICTS, LANGUAGES, LSGD_TYPES, PHOTO_VIEWS, REFERRAL_TYPES, RED_FLAGS } from '/shared/clinical.js';
 import { CONSENT_VERSION, isDraft } from '/shared/consent.js';
+import { QuestionnaireEditor } from './questionnaire-editor.js';
 
+// Which accounts each role manages (mirrors src/admin.js MANAGES).
+const MANAGES = {
+  superadmin: ['superadmin', 'admin', 'clinical_admin', 'coordinator', 'worker', 'dentist', 'auditor', 'dpo', 'researcher'],
+  admin: ['coordinator', 'worker', 'dpo', 'researcher'],
+  clinical_admin: ['dentist', 'auditor'],
+  coordinator: ['worker'],
+};
+const ADMINS = ['admin', 'superadmin'];
+
+const ADMIN_SECTIONS = [['dashboard', 'Dashboard'], ['users', 'Users'], ['questionnaire', 'Questionnaire'], ['referral_centres', 'Referral centres'], ['kb_items', 'Knowledge base'], ['glossary', 'Glossary'],
+  ['lsgds', 'Local bodies'], ['settings', 'Settings'], ['audit-log', 'Access log'], ['consents', 'Consent log'], ['exports', 'Exports'], ['audit', 'Clinical audit']];
 const SECTIONS = {
-  admin: [['dashboard', 'Dashboard'], ['users', 'Users'], ['referral_centres', 'Referral centres'], ['kb_items', 'Knowledge base'], ['glossary', 'Glossary'],
-    ['lsgds', 'Local bodies'], ['settings', 'Settings'], ['audit-log', 'Access log'], ['consents', 'Consent log'], ['exports', 'Exports'], ['audit', 'Clinical audit']],
+  superadmin: ADMIN_SECTIONS,
+  admin: ADMIN_SECTIONS,
+  clinical_admin: [['dashboard', 'Dashboard'], ['questionnaire', 'Questionnaire'], ['users', 'Dentists and auditors'], ['kb_items', 'Knowledge base'], ['glossary', 'Glossary'], ['audit', 'Clinical audit']],
   coordinator: [['dashboard', 'Dashboard'], ['users', 'Field workers']],
   dpo: [['dashboard', 'Dashboard'], ['audit-log', 'Access log'], ['consents', 'Consent log']],
   researcher: [['exports', 'Exports']],
-  auditor: [['audit', 'Clinical audit'], ['kb_items', 'Knowledge base']],
+  auditor: [['audit', 'Clinical audit'], ['kb_items', 'Knowledge base'], ['questionnaire', 'Questionnaire']],
 };
 
 export function AdminArea({ section, id }) {
@@ -25,6 +38,7 @@ export function AdminArea({ section, id }) {
   else if (section === 'dashboard') body = html`<${Dashboard} />`;
   else if (section === 'users') body = html`<${Users} />`;
   else if (section === 'settings') body = html`<${Settings} />`;
+  else if (section === 'questionnaire') body = html`<${QuestionnaireEditor} />`;
   else if (section === 'audit-log') body = html`<${AccessLog} />`;
   else if (section === 'consents') body = html`<${ConsentLog} />`;
   else if (section === 'exports') body = html`<${Exports} />`;
@@ -53,7 +67,18 @@ function Dashboard() {
       <label class="row small">${t('From')} <input type="date" style="max-width:170px" value=${f.from} onInput=${e => setF({ ...f, from: e.target.value })} /></label>
       <label class="row small">${t('To')} <input type="date" style="max-width:170px" value=${f.to} onInput=${e => setF({ ...f, to: e.target.value })} /></label>
     </div>
+    ${['superadmin', 'admin', 'clinical_admin'].includes(s.user.role) && html`<${QuestionnaireChanges} />`}
     ${d.loading || d.error ? html`<${Loading} error=${d.error} retry=${d.reload} />` : html`<${DashBody} d=${d.data} />`}`;
+}
+
+// Recent questionnaire versions, so CIF sees every change AGeD publishes (and can restore an earlier one).
+function QuestionnaireChanges() {
+  const q = useLoad(() => api('/api/admin/questionnaire'), []);
+  const recent = (q.data?.history || []).filter(h => Date.now() - Date.parse(h.created_at + 'Z') < 30 * 864e5).slice(0, 3);
+  if (!recent.length) return '';
+  return html`<div class="callout info small" style="margin-bottom:12px"><strong>${t('Questionnaire changes in the last 30 days')}</strong>
+    <ul style="margin:6px 0 0;padding-left:18px">${recent.map(h => html`<li>${t('Version')} ${h.version} · ${h.created_at.slice(0, 10)} · ${h.created_by_name} — ${h.note}</li>`)}</ul>
+    <a href="#/admin/questionnaire">${t('Open the questionnaire')}</a></div>`;
 }
 
 function bars(rows, labelKey, valueKey, cls = '') {
@@ -119,13 +144,13 @@ function Users() {
       <p class="small">${t('Give this PIN to the person in person or by phone call. They must change it at first sign-in. It will not be shown again.')}</p>
       <button class="btn" onClick=${() => setPinShown(null)}>${t('Done')}</button></div>`}
     ${edit && html`<${UserForm} u=${edit} onDone=${r => { setEdit(null); if (r?.temporary_pin) setPinShown(r); d.reload(); }} />`}
-    ${s.user.role === 'admin' && html`<div class="row" style="margin:12px 0"><select style="max-width:220px" value=${filter} onChange=${e => setFilter(e.target.value)}>
-      <option value="">${t('All roles')}</option>${['worker', 'coordinator', 'dentist', 'auditor', 'admin', 'dpo', 'researcher'].map(r => html`<option value=${r}>${t(r)}</option>`)}</select></div>`}
+    ${(MANAGES[s.user.role] || []).length > 2 && html`<div class="row" style="margin:12px 0"><select style="max-width:220px" value=${filter} onChange=${e => setFilter(e.target.value)}>
+      <option value="">${t('All roles')}</option>${MANAGES[s.user.role].map(r => html`<option value=${r}>${t(roleName(r))}</option>`)}</select></div>`}
     <div class="table-wrap" style="margin-top:12px"><table class="t">
       <thead><tr><th>${t('Name')}</th><th>${t('Role')}</th><th>${t('Mobile')}</th><th>${t('Area / registration')}</th><th></th></tr></thead>
       <tbody>${users.map(u => html`<tr style=${u.active ? '' : 'opacity:.55'}>
         <td><strong>${u.name}</strong>${u.must_change ? html` <span class="chip warn">${t('PIN not set')}</span>` : ''}${!u.active ? html` <span class="chip">${t('inactive')}</span>` : ''}</td>
-        <td>${t(u.role)}</td><td>${u.phone}</td>
+        <td>${t(roleName(u.role))}</td><td>${u.phone}</td>
         <td class="small">${u.role === 'dentist' ? `${u.reg_council || ''} ${u.reg_number || ''}${u.reg_verified_at ? ' ✓' : ''}` : [u.lsgd_name, u.ward && `${t('ward')} ${u.ward}`, u.district].filter(Boolean).join(', ')}</td>
         <td class="nowrap"><button class="btn link" onClick=${() => setEdit(u)}>${t('Edit')}</button><button class="btn link" onClick=${() => resetPin(u)}>${t('Reset PIN')}</button></td></tr>`)}</tbody></table></div>`;
 }
@@ -133,7 +158,7 @@ function Users() {
 function UserForm({ u, onDone }) {
   const s = useAppState();
   const coord = s.user.role === 'coordinator';
-  const [f, setF] = useState({ role: u.role || 'worker', name: u.name || '', phone: u.phone || '', email: u.email || '', organisation: u.organisation || '',
+  const [f, setF] = useState({ role: u.role || ((MANAGES[s.user.role] || []).includes('worker') ? 'worker' : 'dentist'), name: u.name || '', phone: u.phone || '', email: u.email || '', organisation: u.organisation || '',
     state: u.state || (coord ? s.user.state : 'Kerala'), district: u.district || (coord ? s.user.district : ''), lsgd_type: u.lsgd_type || '', lsgd_name: u.lsgd_name || '', ward: u.ward || '',
     reg_council: u.reg_council || 'Kerala State Dental Council', reg_number: u.reg_number || '', reg_verified: false, active: u.active !== 0, content_lang: u.content_lang || 'ml', pincode: u.pincode || '' });
   const set = k => e => setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
@@ -149,7 +174,7 @@ function UserForm({ u, onDone }) {
   };
   return html`<form class="panel stack" style="margin-top:12px" onSubmit=${save}>
     <h2>${u.id ? t('Edit user') : t('New user')}</h2>
-    ${!coord && html`<${Field} label=${t('Role')}><select value=${f.role} onChange=${set('role')}>${['worker', 'coordinator', 'dentist', 'auditor', 'admin', 'dpo', 'researcher'].map(r => html`<option value=${r}>${t(r)}</option>`)}</select><//>`}
+    ${!coord && html`<${Field} label=${t('Role')}><select value=${f.role} onChange=${set('role')}>${(MANAGES[s.user.role] || []).map(r => html`<option value=${r}>${t(roleName(r))}</option>`)}</select><//>`}
     <div class="grid-2"><${Field} label=${t('Name')}><input type="text" value=${f.name} onInput=${set('name')} required /><//>
       <${Field} label=${t('Mobile (10 digits)')}><input type="tel" value=${f.phone} onInput=${set('phone')} required /><//></div>
     <div class="grid-2"><${Field} label=${t('Email (optional)')}><input type="email" value=${f.email} onInput=${set('email')} /><//>
@@ -206,7 +231,7 @@ function RefList({ table }) {
     catch (e) { toast(e.message, true); }
   };
   if (!rows) return html`<${Loading} />`;
-  const canEdit = s.user.role === 'admin';
+  const canEdit = ADMINS.includes(s.user.role) || (s.user.role === 'clinical_admin' && (table === 'kb_items' || table === 'glossary'));
   const shown = rows.filter(r => !q || JSON.stringify(r).toLowerCase().includes(q.toLowerCase()));
   return html`
     <div class="row between"><h1 style="margin:0">${t(def.title)}</h1>${canEdit && html`<button class="btn primary" onClick=${() => setEdit({})}>${t('Add')}</button>`}</div>
@@ -234,7 +259,8 @@ function Settings() {
   useEffect(() => { loadRef(true).then(r => setF({ ...r.settings })); }, []);
   if (!f) return html`<${Loading} />`;
   const save = async e => { e.preventDefault(); try { await api('/api/admin/settings', { method: 'POST', body: f }); toast(t('Saved')); loadRef(true); } catch (e2) { toast(e2.message, true); } };
-  const num = (k, label, hint) => html`<${Field} label=${t(label)} hint=${hint && t(hint)}><input type="number" value=${f[k]} onInput=${e => setF({ ...f, [k]: e.target.value })} /><//>`;
+  const sup = s.user.role === 'superadmin';
+  const num = (k, label, hint, off) => html`<${Field} label=${t(label)} hint=${hint && t(hint)}><input type="number" disabled=${off} value=${f[k]} onInput=${e => setF({ ...f, [k]: e.target.value })} /><//>`;
   return html`<h1>${t('Settings')}</h1><form class="panel stack" onSubmit=${save}>
     ${num('claim_minutes', 'Minutes a case stays reserved for a dentist')}
     ${num('sla_urgent_hours', 'Target hours for urgent cases')}
@@ -244,9 +270,10 @@ function Settings() {
     <h2 style="margin-top:12px">${t('Privacy notice details')}</h2>
     <p class="small muted">${t('These appear in the notice read to every person. The notice is incomplete until all are filled.')} ${t('Notice version')}: <strong>${CONSENT_VERSION}</strong>${isDraft(CONSENT_VERSION) ? ' — ' + t('awaiting legal approval') : ''}. <a href="/privacy.html" target="_blank" rel="noopener">${t('View notice')}</a></p>
     ${[['org_legal_name', 'Organisation legal name'], ['org_address', 'Registered address'], ['grievance_name', 'Grievance officer / data protection contact (name and designation)'],
-      ['grievance_phone', 'Grievance phone'], ['grievance_email', 'Grievance email']].map(([k, label]) => html`<${Field} label=${t(label)}><input type="text" value=${f[k] || ''} onInput=${e => setF({ ...f, [k]: e.target.value })} /><//>`)}
-    ${num('retention_years', 'Years to keep identifiable records after the last visit')}
-    ${num('grievance_days', 'Days within which grievances are answered')}
+      ['grievance_phone', 'Grievance phone'], ['grievance_email', 'Grievance email']].map(([k, label]) => html`<${Field} label=${t(label)}><input type="text" disabled=${!sup} value=${f[k] || ''} onInput=${e => setF({ ...f, [k]: e.target.value })} /><//>`)}
+    ${num('retention_years', 'Years to keep identifiable records after the last visit', null, !sup)}
+    ${num('grievance_days', 'Days within which grievances are answered', null, !sup)}
+    ${!sup && html`<p class="tiny muted">${t('Only the CIF super admin can change the privacy notice details.')}</p>`}
     <p class="small muted">${t('Photo storage')}: ${s.ref?.media_backend === 'r2' ? 'Cloudflare R2' : t('interim database (enable R2 before scale-up)')}</p>
     <div class="btn-row"><button class="btn primary">${t('Save')}</button></div></form>`;
 }

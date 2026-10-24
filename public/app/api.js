@@ -116,7 +116,7 @@ async function decryptBlob(box) {
 export async function putOutbox(id, data, prev = {}) {
   if (!KEY) throw new Error('Saved visits are locked. Enter your PIN.');
   const photos = [];
-  for (const p of data.photos || []) photos.push({ view: p.view, w: p.w, h: p.h, q: p.q, client_uuid: p.client_uuid, box: p.blob ? await encryptBlob(p.blob) : null, uploaded: !!p.uploaded });
+  for (const p of data.photos || []) photos.push({ view: p.view, mime: p.mime, w: p.w, h: p.h, q: p.q, client_uuid: p.client_uuid, box: p.blob ? await encryptBlob(p.blob) : null, uploaded: !!p.uploaded });
   const item = {
     id, created_at: prev.created_at || new Date().toISOString(), label: data.label || '', status: prev.status || 'pending', error: null,
     case_id: data.case_id || prev.case_id || null, visit: await encrypt(data.visit), photos,
@@ -158,8 +158,12 @@ export function syncOutbox(onChange) {
         for (let i = 0; i < it.photos.length; i++) {
           const p = data.photos[i];
           if (p.uploaded || !p.blob) continue;
-          const qs = new URLSearchParams({ view: p.view, client_uuid: p.client_uuid, w: p.w || '', h: p.h || '', q: p.q ?? '' });
-          await api(`/api/cases/${caseId}/images?${qs}`, { method: 'POST', raw: p.blob, headers: { 'content-type': 'image/jpeg' } });
+          if (p.view === 'voice_note') {
+            await api(`/api/cases/${caseId}/voice?client_uuid=${encodeURIComponent(p.client_uuid)}`, { method: 'POST', raw: p.blob, headers: { 'content-type': p.mime || 'audio/webm' } });
+          } else {
+            const qs = new URLSearchParams({ view: p.view, client_uuid: p.client_uuid, w: p.w || '', h: p.h || '', q: p.q ?? '' });
+            await api(`/api/cases/${caseId}/images?${qs}`, { method: 'POST', raw: p.blob, headers: { 'content-type': 'image/jpeg' } });
+          }
           it.photos[i].uploaded = true;
           await updateItem(it.id, { photos: it.photos });
         }

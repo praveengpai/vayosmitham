@@ -1,6 +1,6 @@
 // Dentist screens: the queue of unseen cases, the review workspace, and the dentist's own past opinions.
 // The dentist never receives a name, phone number or address — only age band, sex and district.
-import { html, useState, useEffect, state, useAppState, setState, go, t, L, toast, useLoad, Loading, Field, Choices, Switch, TranslatedText, Thumbs, ago, fmtDate,
+import { html, answerLines, useState, useEffect, state, useAppState, setState, go, t, L, toast, useLoad, Loading, Field, Choices, Switch, TranslatedText, Thumbs, ago, fmtDate,
   UrgencyChip, loadRef } from './ui.js';
 import { api } from './api.js';
 import { OHAT_ITEMS, GOHAI_OPTIONS, COMPLAINTS, RED_FLAGS, PHOTO_VIEWS, REFERRAL_TYPES, MEDICINE_FLAGS } from '/shared/clinical.js';
@@ -79,10 +79,10 @@ export function DentistCase({ id }) {
     <div class="workspace">
       <div class="stack">
         ${c.red_flags.length > 0 && html`<div class="callout urgent"><h3>${t('Warning signs reported')}</h3><ul style="margin:0;padding-left:20px">
-          ${c.red_flags.map(k => html`<li>${RED_FLAGS.find(r => r.key === k)?.en}</li>`)}</ul></div>`}
+          ${c.red_flags.map(k => html`<li>${L(RED_FLAGS.find(r => r.key === k))}</li>`)}</ul></div>`}
         <div class="panel stack">
           <h2>${t('Complaint')}</h2>
-          <p>${sc.complaints.map(k => COMPLAINTS.find(x => x.key === k)?.en).join(' · ') || '—'}</p>
+          <p>${sc.complaints.map(k => L(COMPLAINTS.find(x => x.key === k))).join(' · ') || '—'}</p>
           ${sc.complaint_text && html`<${TranslatedText} text=${sc.complaint_text} lang=${sc.complaint_lang} target=${target} show=${showTx} label=${t('Typed by the field worker')} />`}
           ${sc.worker_notes && html`<div><span class="lbl">${t('Field worker’s note')}</span><${TranslatedText} text=${sc.worker_notes} lang=${sc.worker_notes_lang} target=${target} show=${showTx} /></div>`}
           ${info_requests.length > 0 && html`<div><span class="lbl">${t('Questions and answers')}</span>${info_requests.map(r => html`<div class="stack" style="margin-bottom:8px">
@@ -92,19 +92,20 @@ export function DentistCase({ id }) {
         <div class="panel"><h2>${t('Photos')}</h2><${Thumbs} images=${images} labelFor=${viewLabel} /></div>
         <div class="panel">
           <h2>OHAT <span class="muted small">${sc.ohat_total}/16</span></h2>
-          <table class="t"><tbody>${OHAT_ITEMS.map(it => html`<tr><td>${it.en}</td><td><span class=${'score-dot s' + sc.ohat[it.key]}></span>${sc.ohat[it.key]} — ${it.levels[sc.ohat[it.key]]?.en}</td></tr>`)}</tbody></table>
+          <table class="t"><tbody>${OHAT_ITEMS.map(it => html`<tr><td>${L(it)}</td><td><span class=${'score-dot s' + sc.ohat[it.key]}></span>${sc.ohat[it.key]} — ${L(it.levels[sc.ohat[it.key]])}</td></tr>`)}</tbody></table>
         </div>
         <div class="panel"><h2>${t('Teeth, dentures, function')}</h2><dl class="kv">
           <dt>${t('Natural teeth')}</dt><dd>${sc.natural_teeth ?? '—'} ${sc.functional_dentition ? '(≥20)' : ''}</dd>
           <dt>${t('Dentures')}</dt><dd>${t('upper')} ${sc.denture_upper || '—'}, ${t('lower')} ${sc.denture_lower || '—'}${sc.denture_fit ? ` · ${sc.denture_fit}` : ''}</dd>
           <dt>GOHAI</dt><dd>${sc.gohai_total != null ? `${sc.gohai_total}/60` : t('not asked')}</dd>
+          ${answerLines('teeth', sc.extra).map(x => html`<dt></dt><dd>${x}</dd>`)}
         </dl>
         ${sc.gohai && html`<details><summary class="small">${t('GOHAI answers')}</summary><ol class="small">${sc.gohai.map(a => html`<li>${GOHAI_OPTIONS.find(o => o.v === a)?.en}</li>`)}</ol></details>`}</div>
         <div class="panel"><h2>${t('Health and medicines')}</h2>
-          <p>${Object.entries(sc.context).filter(([, v]) => v).map(([k]) => k.replace(/_/g, ' ')).join(' · ') || t('Nothing reported')}</p>
+          <p>${answerLines('health', sc.context).join(' · ') || t('Nothing reported')}</p>
           ${sc.medicines.length ? html`<p><strong>${t('Medicines')}:</strong> ${sc.medicines.join(', ')}</p>` : ''}
-          ${sc.medicine_flags.length > 0 && html`<div class="callout warn small">${sc.medicine_flags.map(f => html`<div><strong>${f.medicine}</strong>: ${MEDICINE_FLAGS.find(g => g.flag === f.flag)?.en}</div>`)}</div>`}
-          <p class="small muted" style="margin-top:8px">${t('Habits')}: ${Object.entries(sc.risks).filter(([, v]) => v != null && v !== '').map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`).join(' · ')}</p>
+          ${sc.medicine_flags.length > 0 && html`<div class="callout warn small">${sc.medicine_flags.map(f => html`<div><strong>${f.medicine}</strong>: ${L(MEDICINE_FLAGS.find(g => g.flag === f.flag))}</div>`)}</div>`}
+          <p class="small muted" style="margin-top:8px">${t('Habits')}: ${answerLines('habits', sc.risks).join(' · ') || '—'}</p>
         </div>
         ${history.length > 0 && html`<div class="panel"><h2>${t('Earlier visits of this person')}</h2><div class="table-wrap"><table class="t">
           <thead><tr><th>${t('Date')}</th><th class="num">OHAT</th><th class="num">GOHAI</th><th class="num">${t('Teeth')}</th><th>${t('Earlier opinion')}</th></tr></thead>
@@ -172,7 +173,7 @@ function OpinionForm({ caseId, onDone, initial, correcting }) {
       <span class="t">${t('Referral needed')}</span></label>
     ${f.referral_needed && html`<div class="stack">
       <${Field} label=${t('Refer for')}><select value=${f.referral_type} onChange=${e => set('referral_type', e.target.value)}><option value="">—</option>
-        ${REFERRAL_TYPES.map(r => html`<option value=${r.key}>${r.en}</option>`)}</select><//>
+        ${REFERRAL_TYPES.filter(r => r.active !== false).map(r => html`<option value=${r.key}>${L(r)}</option>`)}</select><//>
       <${Field} label=${t('How soon')}><${Choices} name="ru" value=${f.referral_urgency} onChange=${v => set('referral_urgency', v)} options=${[
         { key: 'within_24h', label: t('24 hours') }, { key: 'within_7d', label: t('7 days') }, { key: 'within_30d', label: t('1 month') }, { key: 'routine', label: t('Routine') }]} /><//>
       ${ta('referral_message', t('Referral letter'), t('Filled in from the template — edit as needed'), 6)}
@@ -196,7 +197,7 @@ function SignedOpinion({ o, caseId, onChanged }) {
     referral_message: o.referral_message || '', referral_urgency: o.referral_urgency || 'within_30d' }} onDone=${() => { setEdit(false); onChanged(); }} />`;
   return html`<div class="panel stack"><h2>${t('Signed opinion')} <span class="muted small">v${o.version} · ${fmtDate(o.signed_at)}</span></h2>
     <dl class="kv"><dt>${t('Impression')}</dt><dd>${o.impression || '—'}</dd><dt>${t('Advice')}</dt><dd>${o.advice || '—'}</dd><dt>${t('Care plan')}</dt><dd>${o.care_plan || '—'}</dd>
-      <dt>${t('Referral')}</dt><dd>${o.referral_needed ? REFERRAL_TYPES.find(r => r.key === o.referral_type)?.en : t('No')}</dd></dl>
+      <dt>${t('Referral')}</dt><dd>${o.referral_needed ? L(REFERRAL_TYPES.find(r => r.key === o.referral_type)) : t('No')}</dd></dl>
     ${o.mine && html`<button class="btn" onClick=${() => setEdit(true)}>${t('Correct this opinion')}</button>`}</div>`;
 }
 

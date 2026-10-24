@@ -7,7 +7,8 @@ import { refreshOutbox, runSync } from './main.js';
 import { processPhoto } from './photo.js';
 import { CONSENT_VERSION, noticeSections, noticeText, layerText, deciderLabel, DECIDER_TYPES, contactGaps, registerNotice } from '/shared/consent.js';
 import { OHAT_ITEMS, GOHAI_ITEMS, GOHAI_OPTIONS, COMPLAINTS, RED_FLAGS, PHOTO_VIEWS, STATES, LSGD_TYPES, UI_LANGUAGES, LANGUAGES, validPincode, LOCATION_OVERRIDE_REASONS,
-  flagMedicines, MEDICINE_FLAGS, ohatTotal, gohaiTotal, detectLang } from '/shared/clinical.js';
+  flagMedicines, MEDICINE_FLAGS, ohatTotal, gohaiTotal, detectLang, questionsFor, HABIT_OPTIONS, QUESTION_STEPS } from '/shared/clinical.js';
+import { questionnaireVersion } from '/shared/questionnaire.js';
 
 const STEPS = ['person', 'consent', 'flags', 'complaints', 'ohat', 'teeth', 'health', 'habits', 'gohai', 'photos', 'review'];
 const DRAFT_KEY = 'vs_visit_draft';
@@ -20,7 +21,7 @@ function blankVisit(user, personId) {
     consent: { capacity: 'has_capacity', method: 'signature', witness_name: '', assent_by: '', assent_relation: '', decider_type: '', layers: { care: false, photos: false, research: false, messaging: false }, read: false, notice_language: (user.content_lang && user.content_lang !== 'en' ? user.content_lang : uiLang()), copy_offered: false },
     red_flags: [], none_flags: false,
     screening: { complaints: [], complaint_text: '', ohat: {}, gohai: Array(12).fill(null), skip_gohai: false, natural_teeth: '', denture_upper: '', denture_lower: '', denture_fit: '',
-      context: {}, medicines: [], risks: {}, worker_notes: '' },
+      context: {}, medicines: [], risks: {}, extra: {}, worker_notes: '' },
   };
 }
 
@@ -32,6 +33,7 @@ export function VisitWizard({ personId }) {
     return blankVisit(user, personId);
   });
   const [photos, setPhotos] = useState({}); // view -> {blob, url, w, h, q, problems}
+  const [voice, setVoice] = useState(null); // {blob, url, mime, secs}
   const [step, setStep] = useState(personId ? 1 : 0);
   const [err, setErr] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -86,6 +88,7 @@ export function VisitWizard({ personId }) {
       if (!vaultUnlocked()) throw new Error(t('Saved visits are locked. Sign out and in again.'));
       const payload = buildPayload(v, user, personId, hasCare);
       const photoList = Object.entries(photos).map(([view, p]) => ({ view, blob: p.blob, w: p.w, h: p.h, q: p.q, client_uuid: uuid() }));
+      if (voice?.blob) photoList.push({ view: 'voice_note', blob: voice.blob, mime: voice.mime, client_uuid: uuid() });
       const label = personId ? (existing.data?.person?.name || personId) : v.person.name;
       await putOutbox(v.client_uuid, { visit: payload, photos: photoList, label });
       sessionStorage.removeItem(DRAFT_KEY);
@@ -104,6 +107,9 @@ export function VisitWizard({ personId }) {
   if (personId && (existing.loading || existing.error)) return html`<${Loading} error=${existing.error} retry=${existing.reload} />`;
   const name = STEPS[step];
   const titleName = personId ? existing.data?.person?.name : v.person.name;
+  const sc0 = v.screening;
+  const who = { state: (personId ? existing.data?.person?.state : v.person.state) || user.state,
+    hasDenture: [sc0.denture_upper, sc0.denture_lower].some(d => d && d !== 'none') };
   return html`<div class="narrow">
     <div class="row between"><h1 style="margin:0">${personId ? t('Follow-up visit') : t('New person')}</h1>
       <button class="btn link" onClick=${() => { if (confirm(t('Discard this visit?'))) { sessionStorage.removeItem(DRAFT_KEY); go('/'); } }}>${t('Cancel')}</button></div>
@@ -112,14 +118,14 @@ export function VisitWizard({ personId }) {
     ${name === 'person' && html`<${PersonStep} p=${v.person} upd=${upd} user=${user} />`}
     ${name === 'consent' && html`<${ConsentStep} c=${v.consent} upd=${upd} hasCare=${hasCare} prior=${priorConsent} />`}
     ${name === 'flags' && html`<${FlagsStep} v=${v} upd=${upd} />`}
-    ${name === 'complaints' && html`<${ComplaintsStep} sc=${v.screening} upd=${upd} />`}
+    ${name === 'complaints' && html`<${ComplaintsStep} sc=${v.screening} upd=${upd} voice=${voice} setVoice=${setVoice} />`}
     ${name === 'ohat' && html`<${OhatStep} sc=${v.screening} upd=${upd} />`}
-    ${name === 'teeth' && html`<${TeethStep} sc=${v.screening} upd=${upd} />`}
-    ${name === 'health' && html`<${HealthStep} sc=${v.screening} upd=${upd} />`}
-    ${name === 'habits' && html`<${HabitsStep} sc=${v.screening} upd=${upd} />`}
+    ${name === 'teeth' && html`<${TeethStep} sc=${v.screening} upd=${upd} who=${who} />`}
+    ${name === 'health' && html`<${HealthStep} sc=${v.screening} upd=${upd} who=${who} />`}
+    ${name === 'habits' && html`<${HabitsStep} sc=${v.screening} upd=${upd} who=${who} />`}
     ${name === 'gohai' && html`<${GohaiStep} sc=${v.screening} upd=${upd} />`}
     ${name === 'photos' && html`<${PhotosStep} photos=${photos} setPhotos=${setPhotos} />`}
-    ${name === 'review' && html`<${ReviewStep} v=${v} photos=${photos} name=${titleName} upd=${upd} />`}
+    ${name === 'review' && html`<${ReviewStep} v=${v} photos=${photos} voice=${voice} name=${titleName} upd=${upd} />`}
     ${err && html`<div class="callout urgent" role="alert" style="margin-top:12px">${err}</div>`}
     <div class="wizard-foot">
       <button class="btn" onClick=${back}>${t('Back')}</button>
@@ -146,7 +152,8 @@ function buildPayload(v, user, personId, hasCare) {
     client_uuid: v.client_uuid, visit_type: personId ? (v.screening.complaints.includes('checkup') ? 'followup' : 'problem') : 'baseline',
     person_id: personId || undefined, person: personId ? undefined : p, consents: hasCare && !c.read ? [] : consents,
     red_flags: v.red_flags,
-    screening: { ...sc, gohai: sc.skip_gohai ? null : sc.gohai, natural_teeth: Number(sc.natural_teeth) },
+    screening: { ...sc, gohai: sc.skip_gohai ? null : sc.gohai, natural_teeth: sc.natural_teeth === '' ? null : Number(sc.natural_teeth) },
+    questionnaire_version: questionnaireVersion(),
   };
 }
 
@@ -264,7 +271,7 @@ function FlagsStep({ v, upd }) {
   return html`<div class="stack">
     <h2>${t('Warning signs')}</h2>
     <p class="muted">${t('Ask and look. Tick every sign that is present.')}</p>
-    ${RED_FLAGS.map(r => html`<label class=${'choice block' + (v.red_flags.includes(r.key) ? ' on' : '')}>
+    ${RED_FLAGS.filter(r => r.active !== false || v.red_flags.includes(r.key)).map(r => html`<label class=${'choice block' + (v.red_flags.includes(r.key) ? ' on' : '')}>
       <input type="checkbox" checked=${v.red_flags.includes(r.key)} onChange=${() => toggle(r.key)} /><span class="t">${L(r)}</span></label>`)}
     <label class=${'choice block' + (v.none_flags ? ' on' : '')}><input type="checkbox" checked=${v.none_flags} onChange=${e => { upd('none_flags', e.target.checked); if (e.target.checked) upd('red_flags', []); }} />
       <span class="t">${t('None of these')}</span></label>
@@ -274,13 +281,51 @@ function FlagsStep({ v, upd }) {
   </div>`;
 }
 
-function ComplaintsStep({ sc, upd }) {
+function ComplaintsStep({ sc, upd, voice, setVoice }) {
   return html`<div class="stack">
     <h2>${t('What problems does the person have?')}</h2>
-    <${Choices} multi name="cmp" value=${sc.complaints} onChange=${x => upd('screening.complaints', x)} options=${COMPLAINTS.map(c => ({ key: c.key, label: L(c) }))} />
+    <${Choices} multi name="cmp" value=${sc.complaints} onChange=${x => upd('screening.complaints', x)} options=${COMPLAINTS.filter(c => c.active !== false || sc.complaints.includes(c.key)).map(c => ({ key: c.key, label: L(c) }))} />
     <${Field} label=${t('In the person’s own words (optional)')} hint=${t('Type in your own language or English. The dentist sees exactly what you type, with a translation.')}>
       <textarea value=${sc.complaint_text} onInput=${e => upd('screening.complaint_text', e.target.value)}></textarea><//>
     ${sc.complaint_text && html`<p class="tiny">${t('Language detected')}: ${detectLang(sc.complaint_text)}</p>`}
+    <${VoiceNote} voice=${voice} setVoice=${setVoice} />
+  </div>`;
+}
+
+// Optional voice note (max 2 minutes), recorded by the worker in her own voice. Kept in the encrypted outbox until sent.
+const VOICE_MAX = 120;
+function VoiceNote({ voice, setVoice }) {
+  const [rec, setRec] = useState(null);
+  const [secs, setSecs] = useState(0);
+  const supported = typeof MediaRecorder !== 'undefined' && navigator.mediaDevices?.getUserMedia;
+  useEffect(() => () => { if (rec) rec.stop(); }, [rec]);
+  if (!supported) return '';
+  const start = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4', 'audio/webm'].find(m => MediaRecorder.isTypeSupported?.(m)) || '';
+      const mr = new MediaRecorder(stream, { ...(mime ? { mimeType: mime } : {}), audioBitsPerSecond: 24000 });
+      const chunks = []; const t0 = Date.now();
+      const tick = setInterval(() => { const s = Math.round((Date.now() - t0) / 1000); setSecs(s); if (s >= VOICE_MAX) mr.stop(); }, 500);
+      mr.ondataavailable = e => e.data.size && chunks.push(e.data);
+      mr.onstop = () => {
+        clearInterval(tick); stream.getTracks().forEach(tr => tr.stop());
+        const type = (mr.mimeType || 'audio/webm').split(';')[0];
+        const blob = new Blob(chunks, { type });
+        if (voice?.url) URL.revokeObjectURL(voice.url);
+        setVoice({ blob, url: URL.createObjectURL(blob), mime: type, secs: Math.round((Date.now() - t0) / 1000) });
+        setRec(null);
+      };
+      mr.start(1000); setSecs(0); setRec(mr);
+    } catch { toast(t('Could not use the microphone'), true); }
+  };
+  return html`<div class="panel stack">
+    <strong>${t('Voice note for the dentist (optional)')}</strong>
+    <p class="tiny muted">${t('Describe the problem in your own voice, up to 2 minutes. Do not record the older person and do not say their name.')}</p>
+    ${rec ? html`<div class="row"><span class="chip urgent">● ${secs}s / ${VOICE_MAX}s</span><button type="button" class="btn primary" onClick=${() => rec.stop()}>${t('Stop')}</button></div>`
+      : voice ? html`<div class="row"><audio controls src=${voice.url} style="max-width:100%"></audio>
+          <button type="button" class="btn link" onClick=${() => { URL.revokeObjectURL(voice.url); setVoice(null); }}>${t('Delete')}</button></div>`
+      : html`<div><button type="button" class="btn" onClick=${start}>🎙 ${t('Record voice')}</button></div>`}
   </div>`;
 }
 
@@ -297,7 +342,23 @@ function OhatStep({ sc, upd }) {
   </div>`;
 }
 
-function TeethStep({ sc, upd }) {
+// One questionnaire question (configured by the AGeD clinical admin). Answers go to screening.extra / context / risks.
+function Question({ q, sc, upd }) {
+  const store = QUESTION_STEPS[q.step];
+  const val = sc[store]?.[q.key];
+  const set = x => upd(`screening.${store}.${q.key}`, x);
+  const name = 'q_' + q.key;
+  if (q.type === 'yesno') return html`<div class="row between"><span>${L(q)}</span><${YesNo} name=${name} value=${val} onChange=${set} /></div>`;
+  let input;
+  if (q.type === 'habit') input = html`<${Choices} name=${name} value=${val} onChange=${set} options=${HABIT_OPTIONS.map(o => ({ key: o.key, label: L(o) }))} />`;
+  else if (q.type === 'choice') input = html`<${Choices} name=${name} value=${val} onChange=${set} options=${(q.options || []).filter(o => o.active !== false || o.key === val).map(o => ({ key: o.key, label: L(o) }))} />`;
+  else if (q.type === 'number') input = html`<input type="number" inputmode="numeric" min=${q.min ?? 0} max=${q.max ?? 99} style="max-width:140px" value=${val ?? ''} onInput=${e => set(e.target.value === '' ? null : Number(e.target.value))} />`;
+  else input = html`<input type="text" maxlength="300" value=${val || ''} onInput=${e => set(e.target.value)} />`;
+  return html`<${Field} label=${L(q)}>${input}<//>`;
+}
+const Questions = ({ step, sc, upd, who }) => questionsFor(step, who).map(q => html`<${Question} key=${q.key} q=${q} sc=${sc} upd=${upd} />`);
+
+function TeethStep({ sc, upd, who }) {
   const n = sc.natural_teeth === '' ? null : Number(sc.natural_teeth);
   const bump = d => upd('screening.natural_teeth', String(Math.max(0, Math.min(32, (n ?? 0) + d))));
   const dent = [{ key: 'none', label: t('None') }, { key: 'partial', label: t('Partial') }, { key: 'complete', label: t('Complete') }];
@@ -309,49 +370,34 @@ function TeethStep({ sc, upd }) {
         <button type="button" class="btn" onClick=${() => bump(1)} aria-label=${t('One more')}>+</button></div><//>
     <${Field} label=${t('Upper denture')}><${Choices} name="du" value=${sc.denture_upper} onChange=${x => upd('screening.denture_upper', x)} options=${dent} /><//>
     <${Field} label=${t('Lower denture')}><${Choices} name="dl" value=${sc.denture_lower} onChange=${x => upd('screening.denture_lower', x)} options=${dent} /><//>
-    ${(sc.denture_upper && sc.denture_upper !== 'none') || (sc.denture_lower && sc.denture_lower !== 'none') ? html`<${Field} label=${t('How do the dentures fit?')}>
+    ${who.hasDenture ? html`<${Field} label=${t('How do the dentures fit?')}>
       <${Choices} name="df" value=${sc.denture_fit} onChange=${x => upd('screening.denture_fit', x)} options=${[
         { key: 'good', label: t('Fit well') }, { key: 'loose', label: t('Loose') }, { key: 'painful', label: t('Painful / sore') }, { key: 'broken', label: t('Broken') }, { key: 'not_worn', label: t('Not worn') }]} /><//>` : ''}
+    <${Questions} step="teeth" sc=${sc} upd=${upd} who=${who} />
   </div>`;
 }
 
-function HealthStep({ sc, upd }) {
+function HealthStep({ sc, upd, who }) {
   const [med, setMed] = useState('');
   const flags = flagMedicines(sc.medicines);
   const addMed = () => { const m = med.trim(); if (m && !sc.medicines.includes(m)) upd('screening.medicines', [...sc.medicines, m]); setMed(''); };
-  const ctx = [['bedbound', 'Bedbound or housebound'], ['dementia', 'Memory problems / dementia'], ['swallowing_difficulty', 'Difficulty swallowing or choking'],
-    ['diabetes', 'Diabetes'], ['stroke', 'Stroke or paralysis'], ['cancer_treatment', 'Cancer treatment now or before'], ['lives_alone', 'Lives alone'],
-    ['needs_help_cleaning', 'Needs help to clean teeth or dentures'], ['weight_loss', 'Recent weight loss or poor appetite'], ['palliative', 'Under palliative care']];
   return html`<div class="stack">
     <h2>${t('Health')}</h2>
-    ${ctx.map(([k, label]) => html`<div class="row between"><span>${t(label)}</span><${YesNo} name=${'ctx' + k} value=${sc.context[k]} onChange=${x => upd('screening.context.' + k, x)} /></div>`)}
+    <${Questions} step="health" sc=${sc} upd=${upd} who=${who} />
     <${Field} label=${t('Medicines taken regularly')} hint=${t('Copy the names from the strips or prescription, one at a time.')}>
       <div class="row"><input type="text" class="grow" value=${med} onInput=${e => setMed(e.target.value)} onKeyDown=${e => { if (e.key === 'Enter') { e.preventDefault(); addMed(); } }} list="med-list" />
         <button type="button" class="btn" onClick=${addMed}>${t('Add')}</button></div>
-      <datalist id="med-list">${MEDICINE_FLAGS.flatMap(g => g.names).map(n => html`<option value=${n} />`)}</datalist><//>
+      <datalist id="med-list">${MEDICINE_FLAGS.filter(g => g.active !== false).flatMap(g => g.names).map(n => html`<option value=${n} />`)}</datalist><//>
     ${sc.medicines.length > 0 && html`<div class="choices">${sc.medicines.map(m => html`<span class="chip" style="padding:6px 10px">${m}
       <button type="button" class="btn link" style="padding:0 0 0 6px" aria-label=${t('Remove') + ' ' + m} onClick=${() => upd('screening.medicines', sc.medicines.filter(x => x !== m))}>×</button></span>`)}</div>`}
     ${flags.length > 0 && html`<div class="callout info small">${flags.map(f => html`<div><strong>${f.medicine}</strong>: ${L(MEDICINE_FLAGS.find(g => g.flag === f.flag))}</div>`)}</div>`}
   </div>`;
 }
 
-function HabitsStep({ sc, upd }) {
-  const r = sc.risks;
-  const nfc = [{ key: 'never', label: t('Never') }, { key: 'former', label: t('Stopped') }, { key: 'current', label: t('Now') }];
+function HabitsStep({ sc, upd, who }) {
   return html`<div class="stack">
     <h2>${t('Habits')}</h2>
-    <${Field} label=${t('Chewing tobacco, pan, gutka')}><${Choices} name="tc" value=${r.tobacco_chew} onChange=${x => upd('screening.risks.tobacco_chew', x)} options=${nfc} /><//>
-    <${Field} label=${t('Areca nut (adakka)')}><${Choices} name="ar" value=${r.areca} onChange=${x => upd('screening.risks.areca', x)} options=${nfc} /><//>
-    <${Field} label=${t('Smoking (beedi, cigarette)')}><${Choices} name="ts" value=${r.tobacco_smoke} onChange=${x => upd('screening.risks.tobacco_smoke', x)} options=${nfc} /><//>
-    <${Field} label=${t('Alcohol')}><${Choices} name="al" value=${r.alcohol} onChange=${x => upd('screening.risks.alcohol', x)} options=${nfc} /><//>
-    <${Field} label=${t('Sweet things or sweet tea/coffee — times a day')}><input type="number" inputmode="numeric" min="0" max="20" value=${r.sugar_per_day ?? ''} onInput=${e => upd('screening.risks.sugar_per_day', e.target.value === '' ? null : Number(e.target.value))} /><//>
-    <${Field} label=${t('Cleans teeth or dentures')}><${Choices} name="br" value=${r.brushing} onChange=${x => upd('screening.risks.brushing', x)} options=${[
-      { key: 'twice', label: t('Twice a day') }, { key: 'once', label: t('Once a day') }, { key: 'irregular', label: t('Sometimes') }, { key: 'never', label: t('Never') }, { key: 'assisted', label: t('Someone helps') }]} /><//>
-    <${Field} label=${t('Cleans with')}><${Choices} name="ba" value=${r.brush_aid} onChange=${x => upd('screening.risks.brush_aid', x)} options=${[
-      { key: 'toothbrush', label: t('Toothbrush') }, { key: 'finger', label: t('Finger') }, { key: 'neem_stick', label: t('Neem/twig') }, { key: 'charcoal_powder', label: t('Charcoal or powder') }, { key: 'other', label: t('Other') }]} /><//>
-    <${Field} label=${t('Uses fluoride toothpaste')}><${YesNo} name="fl" value=${r.fluoride_paste} onChange=${x => upd('screening.risks.fluoride_paste', x)} /><//>
-    <${Field} label=${t('Last visit to a dentist')}><${Choices} name="lv" value=${r.last_dental_visit} onChange=${x => upd('screening.risks.last_dental_visit', x)} options=${[
-      { key: '<1y', label: t('Within a year') }, { key: '1-3y', label: t('1–3 years') }, { key: '>3y', label: t('More than 3 years') }, { key: 'never', label: t('Never') }]} /><//>
+    <${Questions} step="habits" sc=${sc} upd=${upd} who=${who} />
   </div>`;
 }
 
@@ -390,7 +436,7 @@ function PhotosStep({ photos, setPhotos }) {
     <h2>${t('Photos of the mouth')}</h2>
     <div class="callout info small">${t('Good light (torch or daylight), phone close, mouth only — no face. Ask someone to hold the torch. Take at least front, upper and lower; add a close-up of any sore or patch.')}</div>
     <input ref=${input} type="file" accept="image/*" capture="environment" class="sr" onChange=${onFile} />
-    <div class="photo-grid">${PHOTO_VIEWS.map(v => photos[v.key]
+    <div class="photo-grid">${PHOTO_VIEWS.filter(v => v.active !== false || photos[v.key]).map(v => photos[v.key]
       ? html`<div class="photo-slot has"><img src=${photos[v.key].url} alt=${L(v)} />
           ${photos[v.key].problems.length ? html`<span class="chip warn bad">${photos[v.key].problems.map(x => t(x)).join(', ')}</span>` : ''}
           <div class="cap row between"><span>${L(v).split(' — ')[0]}</span><span><button type="button" class="btn link" onClick=${() => pick(v.key)}>${t('Retake')}</button>
@@ -402,7 +448,7 @@ function PhotosStep({ photos, setPhotos }) {
   </div>`;
 }
 
-function ReviewStep({ v, photos, name, upd }) {
+function ReviewStep({ v, photos, voice, name, upd }) {
   const sc = v.screening;
   return html`<div class="stack">
     <h2>${t('Check and send')}</h2>
@@ -416,6 +462,7 @@ function ReviewStep({ v, photos, name, upd }) {
       <dt>GOHAI</dt><dd>${sc.skip_gohai ? t('Skipped') : gohaiTotal(sc.gohai) + ' / 60'}</dd>
       <dt>${t('Medicines')}</dt><dd>${sc.medicines.join(', ') || '—'}</dd>
       <dt>${t('Photos')}</dt><dd>${Object.keys(photos).length}</dd>
+      ${voice && html`<dt>${t('Voice note')}</dt><dd>${voice.secs}s</dd>`}
     </dl></div>
     <${Field} label=${t('Anything else the dentist should know? (optional)')}><textarea value=${sc.worker_notes} onInput=${e => upd('screening.worker_notes', e.target.value)}></textarea><//>
   </div>`;

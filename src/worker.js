@@ -7,6 +7,7 @@ import { getMedia } from './media.js';
 import * as field from './field.js';
 import * as dentist from './dentist.js';
 import * as admin from './admin.js';
+import * as qn from './questionnaire.js';
 
 const SECURITY_HEADERS = {
   'x-content-type-options': 'nosniff',
@@ -37,6 +38,7 @@ const ROUTES = [
   ['POST', '/api/persons/:id/withdraw-consent', field.withdrawConsent],
   ['POST', '/api/visits', field.submitVisit],
   ['POST', '/api/cases/:id/images', field.uploadImage],
+  ['POST', '/api/cases/:id/voice', field.uploadVoice],
   ['GET', '/api/cases/:id', field.getCaseForWorker],
   ['POST', '/api/cases/:id/info-response', field.respondInfo],
   ['GET', '/api/cases/:id/report', field.reportData],
@@ -58,6 +60,9 @@ const ROUTES = [
   ['POST', '/api/audit/opinions/:id', admin.saveAudit],
 
   // administration
+  ['GET', '/api/admin/questionnaire', qn.getQuestionnaire],
+  ['POST', '/api/admin/questionnaire', qn.publishQuestionnaire],
+  ['POST', '/api/admin/questionnaire/restore', qn.restoreQuestionnaire],
   ['GET', '/api/admin/users', admin.listUsers],
   ['POST', '/api/admin/users', admin.createUser],
   ['PATCH', '/api/admin/users/:id', admin.updateUser],
@@ -102,6 +107,7 @@ export default {
         return withHeaders(json({ ok: true }, 200, { 'set-cookie': await logout(env, req) }));
       }
       const user = await currentUser(env, req);
+      if (user) await qn.syncQuestionnaire(env);
       for (const r of COMPILED) {
         if (r.m !== req.method) continue;
         const m = url.pathname.match(r.re);
@@ -185,6 +191,7 @@ async function reference(env, req, user) {
   return json({
     lsgds: lsgds.results, referral_centres: centres.results, kb_items: kb.results, glossary: glossary.results,
     settings: Object.fromEntries(settings.results.map(r => [r.key, r.value])), media_backend: env.MEDIA_BUCKET ? 'r2' : 'd1',
+    questionnaire: await qn.syncQuestionnaire(env),
   });
 }
 
@@ -196,7 +203,7 @@ async function noticeSettings(env) {
 }
 
 async function translateApi(env, req, user) {
-  requireRole(user, 'worker', 'coordinator', 'dentist', 'auditor', 'admin');
+  requireRole(user, 'worker', 'coordinator', 'dentist', 'auditor', 'admin', 'clinical_admin');
   const b = await body(req);
   const langs = ['en', 'ml', 'ta', 'kn', 'te', 'hi', 'bn', 'gu', 'pa', 'or', 'mr', 'ur'];
   const src = oneOf(b.src, langs), tgt = oneOf(b.tgt, langs);
@@ -208,10 +215,10 @@ async function translateApi(env, req, user) {
 }
 
 async function media(env, req, user, id) {
-  requireRole(user, 'worker', 'coordinator', 'dentist', 'auditor', 'admin');
+  requireRole(user, 'worker', 'coordinator', 'dentist', 'auditor', 'admin', 'clinical_admin');
   const img = await env.CLINICAL.prepare('SELECT i.*, c.person_id, c.worker_id, c.claimed_by, c.claim_expires, c.status, c.district, c.sampled_for_audit FROM images i JOIN cases c ON c.id = i.case_id WHERE i.id = ?').bind(id).first();
   if (!img) throw new HttpError(404, 'Photo not found');
-  let ok = user.role === 'admin' || (user.role === 'auditor');
+  let ok = ['admin', 'superadmin', 'auditor', 'clinical_admin'].includes(user.role);
   if (user.role === 'worker') {
     const p = await env.IDENTITY.prepare('SELECT worker_id FROM persons WHERE id = ?').bind(img.person_id).first();
     ok = img.worker_id === user.id || p?.worker_id === user.id;

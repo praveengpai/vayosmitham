@@ -1,5 +1,5 @@
 // Field-worker screens: home, people, a person's record, a case with the dentist's opinion.
-import { html, useState, useEffect, state, useAppState, go, t, L, toast, useLoad, Loading, Field, Choices, TranslatedText, Thumbs, ago, fmtDate,
+import { html, answerLines, useState, useEffect, state, useAppState, go, t, L, toast, useLoad, Loading, Field, Choices, TranslatedText, Thumbs, ago, fmtDate,
   UrgencyChip, StatusChip, Smile, Icon, youtubeEmbed, loadRef, uiLang, tIn, adviceIn } from './ui.js';
 import { loadLang } from './i18n.js';
 import { api, removeOutbox } from './api.js';
@@ -226,6 +226,10 @@ export function ScreeningSummary({ s }) {
     <dt>${t('Complaints')}</dt><dd>${s.complaints.map(k => L(COMPLAINTS.find(c => c.key === k))).join(', ') || '—'}</dd>
     ${s.complaint_text && html`<dt>${t('In their words')}</dt><dd>${s.complaint_text}</dd>`}
     ${OHAT_ITEMS.filter(it => s.ohat[it.key] > 0).map(it => html`<dt>${L(it)}</dt><dd><span class=${'score-dot s' + s.ohat[it.key]}></span>${L(it.levels[s.ohat[it.key]])}</dd>`)}
+    ${[['teeth', s.extra, 'Dentures'], ['health', s.context, 'Health'], ['habits', s.risks, 'Habits']].map(([step, a, label]) => {
+      const lines = answerLines(step, a || {});
+      return lines.length ? html`<dt>${t(label)}</dt><dd>${lines.join(' · ')}</dd>` : '';
+    })}
   </dl>`;
 }
 
