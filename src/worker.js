@@ -26,6 +26,7 @@ const ROUTES = [
   ['PATCH', '/api/me/prefs', savePrefs],
   ['GET', '/api/ref', reference],
   ['GET', '/api/public/notice-settings', noticeSettings],
+  ['GET', '/api/public/env', publicEnv],
   ['POST', '/api/translate', translateApi],
   ['GET', '/api/media/:id', media],
 
@@ -191,8 +192,15 @@ async function reference(env, req, user) {
   return json({
     lsgds: lsgds.results, referral_centres: centres.results, kb_items: kb.results, glossary: glossary.results,
     settings: Object.fromEntries(settings.results.map(r => [r.key, r.value])), media_backend: env.MEDIA_BUCKET ? 'r2' : 'd1',
-    questionnaire: await qn.syncQuestionnaire(env),
+    questionnaire: await qn.syncQuestionnaire(env), environment: env.ENVIRONMENT || 'pilot',
   });
+}
+
+// Which site this is. On the demo site, also the demo sign-ins (fictional accounts) for the sign-in page.
+async function publicEnv(env) {
+  if (env.ENVIRONMENT !== 'demo') return json({ environment: env.ENVIRONMENT || 'pilot' });
+  const { results } = await env.IDENTITY.prepare("SELECT name, role, phone FROM users WHERE phone LIKE '900010%' AND active = 1 ORDER BY phone").all().catch(() => ({ results: [] }));
+  return json({ environment: 'demo', demo_pin: '246810', demo_accounts: results });
 }
 
 // Contact details for the public privacy notice page (no personal data).

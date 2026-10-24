@@ -36,8 +36,36 @@
   "ai": { "binding": "AI" },
   "vars": {
     "APP_NAME": "Vayosmitham",
-    "ENVIRONMENT": "pilot-demo"
+    "ENVIRONMENT": "pilot"
   },
   "triggers": { "crons": ["15 * * * *"] },
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  // The demo seed files are bundled as text into the demo worker only (src/demo.js imports them).
+  "rules": [{ "type": "Text", "globs": ["**/*.sql"], "fallthrough": true }],
+
+  // DEMO site: same app, separate databases filled with 500 fictional people, reset every night at 03:00 IST.
+  // Deployed by Workers Builds with: npx wrangler deploy --env demo
+  "env": {
+    "demo": {
+      "name": "vayosmitham-demo",
+      "main": "src/demo.js",
+      "workers_dev": true,
+      "preview_urls": false,
+      "assets": {
+        "directory": "public",
+        "binding": "ASSETS",
+        "not_found_handling": "single-page-application",
+        "run_worker_first": ["/api/*", "/v/*"]
+      },
+      "d1_databases": [
+        { "binding": "IDENTITY", "database_name": "vayosmitham-demo-identity", "database_id": "7b42cb88-0175-42f0-a92a-c9176bf224c1" },
+        { "binding": "CLINICAL", "database_name": "vayosmitham-demo-clinical", "database_id": "7226ecb1-f342-43b4-8fdf-8979e2c289cc" },
+        { "binding": "MEDIA_DB", "database_name": "vayosmitham-demo-media", "database_id": "ab7047fe-0987-46e8-8cd2-dfc66cdebf88" }
+      ],
+      "ai": { "binding": "AI" },
+      "vars": { "APP_NAME": "Vayosmitham (demo)", "ENVIRONMENT": "demo" },
+      "triggers": { "crons": ["15 * * * *", "30 21 * * *"] },
+      "observability": { "enabled": true }
+    }
+  }
 }

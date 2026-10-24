@@ -643,7 +643,10 @@ export default {
   "CIF super admin": "CIF సూపర్ అడ్మిన్",
   "AGeD clinical admin": "AGeD క్లినికల్ అడ్మిన్",
   "Dentists and auditors": "దంత వైద్యులు, ఆడిటర్లు",
-  "Questionnaire": "ప్రశ్నావళి"
+  "Questionnaire": "ప్రశ్నావళి",
+  "Demo site — all people and data are fictional. It resets every night.": "డెమో సైట్ — అందరు వ్యక్తులు, వివరాలు కల్పితం. ప్రతి రాత్రి మళ్ళీ మొదటికి వస్తుంది.",
+  "Tap an account to sign in. PIN for all demo accounts": "సైన్ ఇన్ చేయడానికి ఒక ఖాతాను తాకండి. అన్ని డెమో ఖాతాల PIN",
+  "DEMO — fictional data for practice. Resets every night.": "డెమో — సాధన కోసం కల్పిత వివరాలు. ప్రతి రాత్రి మళ్ళీ మొదటికి వస్తుంది."
  },
  "clinical": {
   "Lips": "పెదవులు",

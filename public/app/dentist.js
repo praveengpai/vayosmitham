@@ -20,7 +20,7 @@ export function DentistQueue() {
   const urgent = cases.filter(c => c.urgency === 'urgent').length;
   return html`
     <div class="row between"><h1 style="margin:0">${t('Cases waiting for an opinion')}</h1><button class="btn" onClick=${d.reload}>${t('Refresh')}</button></div>
-    <p class="muted">${cases.length} ${t('waiting')}${urgent ? html` · <strong style="color:var(--red)">${urgent} ${t('urgent')}</strong>` : ''} · ${t('you have given')} ${d.data.my_opinion_count} ${t('opinions')}.
+    <p class="muted">${cases.length} ${t('waiting')}${urgent ? html` · <strong style="color:var(--red)">${urgent} ${t('urgent')}</strong>` : ''} · ${t('you have given')} ${d.data.my_opinion_count} ${t('opinions')}.${' '}
       ${t('Opening a case reserves it for you so no one else works on it.')}</p>
     ${cases.length === 0 ? html`<div class="panel empty">${t('No cases are waiting. Thank you.')}</div>` : html`<div class="table-wrap"><table class="t">
       <thead><tr><th></th><th>${t('Person')}</th><th>${t('Complaints')}</th><th class="num">OHAT</th><th class="num">${t('Photos')}</th><th>${t('Waiting')}</th><th></th></tr></thead>

@@ -643,7 +643,10 @@ export default {
   "CIF super admin": "CIF സൂപ്പർ അഡ്മിൻ",
   "AGeD clinical admin": "AGeD ക്ലിനിക്കൽ അഡ്മിൻ",
   "Dentists and auditors": "ദന്ത ഡോക്ടർമാരും ഓഡിറ്റർമാരും",
-  "Questionnaire": "ചോദ്യാവലി"
+  "Questionnaire": "ചോദ്യാവലി",
+  "Demo site — all people and data are fictional. It resets every night.": "ഡെമോ സൈറ്റ് — എല്ലാ ആളുകളും വിവരങ്ങളും സാങ്കൽപ്പികമാണ്. എല്ലാ രാത്രിയും പുനഃക്രമീകരിക്കും.",
+  "Tap an account to sign in. PIN for all demo accounts": "സൈൻ ഇൻ ചെയ്യാൻ ഒരു അക്കൗണ്ടിൽ തൊടുക. എല്ലാ ഡെമോ അക്കൗണ്ടുകൾക്കും PIN",
+  "DEMO — fictional data for practice. Resets every night.": "ഡെമോ — പരിശീലനത്തിനുള്ള സാങ്കൽപ്പിക വിവരങ്ങൾ. എല്ലാ രാത്രിയും പുനഃക്രമീകരിക്കും."
  },
  "clinical": {}
 };

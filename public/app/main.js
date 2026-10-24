@@ -94,7 +94,8 @@ function Frame({ children }) {
       ${u.role === 'dentist' && html`<nav class="row" style="margin-left:16px"><a href="#/" style="color:#fff">${t('Queue')}</a><a href="#/history" style="color:#fff">${t('My opinions')}</a></nav>`}
       <a class="who" href="#/me" style="color:#fff;text-decoration:none">${u.name}<br /><span class="tiny" style="color:#d8ece8">${t(roleName(u.role))}</span></a>
     </div></header>
-    ${(isDraft(CONSENT_VERSION) || contactGaps(s.ref?.settings || {}).length > 0) && html`<div class="demo-bar">${t('Pilot version — use test data only until the legal review is complete')}</div>`}
+    ${s.ref?.environment === 'demo' ? html`<div class="demo-bar">${t('DEMO — fictional data for practice. Resets every night.')}</div>`
+      : (isDraft(CONSENT_VERSION) || contactGaps(s.ref?.settings || {}).length > 0) && html`<div class="demo-bar">${t('Pilot version — use test data only until the legal review is complete')}</div>`}
     ${!s.online && html`<div class="offline-bar">${t('No internet. You can keep recording visits; they will be sent when you are back online.')}</div>`}
     <main>${children}</main>
     ${field && html`<nav class="bottom-nav" aria-label=${t('Main')}>
@@ -114,6 +115,8 @@ function Login() {
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  const [site, setSite] = useState(null);
+  useEffect(() => { api('/api/public/env').then(setSite).catch(() => {}); }, []);
   const submit = async e => {
     e.preventDefault();
     setBusy(true); setErr(null);
@@ -149,6 +152,11 @@ function Login() {
     ${err && html`<div class="callout urgent" role="alert">${err}</div>`}
     <button class="btn primary big" disabled=${busy}>${busy ? t('Signing in…') : t('Sign in')}</button>
     <p class="tiny">${t('Forgot your PIN? Ask your coordinator to reset it.')} ${t('A project of Community Innovation Foundation with the Association of Geriatric Dentistry (AGeD).')}</p>
+    ${site?.environment === 'demo' && html`<div class="callout info small demo-accounts">
+      <strong>${t('Demo site — all people and data are fictional. It resets every night.')}</strong>
+      <p style="margin:6px 0">${t('Tap an account to sign in. PIN for all demo accounts')}: <strong>${site.demo_pin}</strong></p>
+      <div class="table-wrap"><table class="t"><tbody>${(site.demo_accounts || []).map(a => html`<tr style="cursor:pointer" onClick=${() => { setPhone(a.phone); setPin(site.demo_pin); }}>
+        <td><strong>${t(roleName(a.role))}</strong><br /><span class="tiny">${a.name.replace(/^Demo /, '').replace(/^Dr Demo /, 'Dr ')}</span></td><td class="nowrap" style="text-align:right">${a.phone}</td></tr>`)}</tbody></table></div></div>`}
   </form></div>`;
 }
 

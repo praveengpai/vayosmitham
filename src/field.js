@@ -1,5 +1,5 @@
 // Field-worker API: enrolment, consent, screening, photos, viewing opinions, referral outcomes.
-import { HttpError, json, body, personId, caseId, uid, str, int, oneOf, parseJSON, audit, addMonths, nowIso } from './util.js';
+import { HttpError, json, body, personId, caseId, uid, str, int, oneOf, parseJSON, audit, addMonths, nowIso, selectIn } from './util.js';
 import { requireRole } from './auth.js';
 import { putMedia, cleanJpeg } from './media.js';
 import { KNOWN_VERSIONS } from '../public/shared/consent.js';
@@ -40,9 +40,8 @@ export async function listPersons(env, req, user) {
   if (!persons.length) return json({ persons: [] });
   // latest case status for each person
   const ids = persons.map(p => p.id);
-  const ph = ids.map(() => '?').join(',');
-  const { results: cases } = await env.CLINICAL.prepare(
-    `SELECT person_id, id, status, urgency, submitted_at FROM cases WHERE person_id IN (${ph}) ORDER BY submitted_at DESC`).bind(...ids).all();
+  const cases = (await selectIn(env.CLINICAL, 'SELECT person_id, id, status, urgency, submitted_at FROM cases WHERE person_id IN (?)', ids))
+    .sort((a, b) => (a.submitted_at < b.submitted_at ? 1 : -1));
   const latest = {};
   for (const c of cases) if (!latest[c.person_id]) latest[c.person_id] = c;
   return json({ persons: persons.map(p => ({ ...p, latest_case: latest[p.id] || null })) });
@@ -293,7 +292,7 @@ export async function workerHome(env, req, user) {
   const ids = [...new Set([...ready.results, ...waiting.results, ...info.results, ...due.results, ...referrals.results].map(r => r.person_id))];
   const names = {};
   if (ids.length) {
-    const { results } = await env.IDENTITY.prepare(`SELECT id, name, lsgd_name, ward FROM persons WHERE id IN (${ids.map(() => '?').join(',')})`).bind(...ids).all();
+    const results = await selectIn(env.IDENTITY, 'SELECT id, name, lsgd_name, ward FROM persons WHERE id IN (?)', ids);
     for (const r of results) names[r.id] = r;
   }
   const withName = rows => rows.map(r => ({ ...r, person: names[r.person_id] || null }));

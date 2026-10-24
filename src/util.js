@@ -92,3 +92,15 @@ export async function audit(env, user, action, objectType, objectId, detail) {
       .bind(user?.id || null, user?.role || null, action, objectType || null, objectId || null, detail ? JSON.stringify(detail).slice(0, 2000) : null).run();
   } catch (e) { console.error('audit failed', e); }
 }
+
+// SELECT ... WHERE col IN (…) for any number of ids. D1 allows at most 100 bound values per query, so look up in chunks.
+// sql must contain "IN (?)" once, e.g. selectIn(db, 'SELECT id, name FROM persons WHERE id IN (?)', ids).
+export async function selectIn(db, sql, ids, size = 90) {
+  const out = [];
+  for (let i = 0; i < ids.length; i += size) {
+    const part = ids.slice(i, i + size);
+    const { results } = await db.prepare(sql.replace('IN (?)', `IN (${part.map(() => '?').join(',')})`)).bind(...part).all();
+    out.push(...results);
+  }
+  return out;
+}

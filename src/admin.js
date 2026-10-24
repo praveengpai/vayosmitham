@@ -1,5 +1,5 @@
 // Admin, coordinator, auditor, DPO and researcher endpoints.
-import { HttpError, json, body, uid, str, int, oneOf, parseJSON, audit, getSettings, sha256, randomCode } from './util.js';
+import { HttpError, json, body, uid, str, int, oneOf, parseJSON, audit, getSettings, sha256, randomCode, selectIn } from './util.js';
 import { requireRole, hashPin, normPhone, validPin } from './auth.js';
 import { LSGD_TYPES, LANG_CODES, validPincode, QUESTIONS, QUESTION_STEPS } from '../public/shared/clinical.js';
 import { expandScreening } from './field.js';
@@ -226,7 +226,7 @@ export async function auditLog(env, req, user) {
     `SELECT * FROM audit_log ${before ? 'WHERE id < ?' : ''} ORDER BY id DESC LIMIT 200`).bind(...(before ? [before] : [])).all();
   const ids = [...new Set(results.map(r => r.user_id).filter(Boolean))];
   const names = {};
-  if (ids.length) for (const r of (await env.IDENTITY.prepare(`SELECT id, name FROM users WHERE id IN (${ids.map(() => '?').join(',')})`).bind(...ids).all()).results) names[r.id] = r.name;
+  for (const r of await selectIn(env.IDENTITY, 'SELECT id, name FROM users WHERE id IN (?)', ids)) names[r.id] = r.name;
   return json({ entries: results.map(r => ({ ...r, user_name: names[r.user_id] || null })) });
 }
 
@@ -322,7 +322,7 @@ export async function auditQueue(env, req, user) {
      WHERE c.sampled_for_audit = 1 AND o.superseded_by IS NULL ORDER BY (a.id IS NOT NULL), o.signed_at DESC LIMIT 200`).all();
   const ids = [...new Set(results.map(r => r.dentist_id))];
   const names = {};
-  if (ids.length) for (const r of (await env.IDENTITY.prepare(`SELECT id, name, reg_number FROM users WHERE id IN (${ids.map(() => '?').join(',')})`).bind(...ids).all()).results) names[r.id] = r;
+  for (const r of await selectIn(env.IDENTITY, 'SELECT id, name, reg_number FROM users WHERE id IN (?)', ids)) names[r.id] = r;
   return json({ items: results.map(r => ({ ...r, dentist: names[r.dentist_id] || null, dentist_id: undefined })) });
 }
 

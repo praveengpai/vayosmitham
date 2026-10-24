@@ -643,7 +643,10 @@ export default {
   "CIF super admin": "CIF सुपर प्रशासक",
   "AGeD clinical admin": "AGeD वैद्यकीय प्रशासक",
   "Dentists and auditors": "दंतवैद्य आणि लेखापरीक्षक",
-  "Questionnaire": "प्रश्नावली"
+  "Questionnaire": "प्रश्नावली",
+  "Demo site — all people and data are fictional. It resets every night.": "डेमो साइट — सर्व व्यक्ती आणि माहिती काल्पनिक आहे. दररोज रात्री पुन्हा सुरुवातीला येते.",
+  "Tap an account to sign in. PIN for all demo accounts": "साइन इन करण्यासाठी खात्यावर टॅप करा. सर्व डेमो खात्यांचा PIN",
+  "DEMO — fictional data for practice. Resets every night.": "डेमो — सरावासाठी काल्पनिक माहिती. दररोज रात्री पुन्हा सुरुवातीला येते."
  },
  "clinical": {
   "Lips": "ओठ",

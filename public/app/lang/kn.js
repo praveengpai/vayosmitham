@@ -643,7 +643,10 @@ export default {
   "CIF super admin": "CIF ಸೂಪರ್ ಆಡಳಿತಗಾರರು",
   "AGeD clinical admin": "AGeD ಕ್ಲಿನಿಕಲ್ ಆಡಳಿತಗಾರರು",
   "Dentists and auditors": "ದಂತ ವೈದ್ಯರು ಮತ್ತು ಲೆಕ್ಕಪರಿಶೋಧಕರು",
-  "Questionnaire": "ಪ್ರಶ್ನಾವಳಿ"
+  "Questionnaire": "ಪ್ರಶ್ನಾವಳಿ",
+  "Demo site — all people and data are fictional. It resets every night.": "ಡೆಮೊ ತಾಣ — ಎಲ್ಲಾ ವ್ಯಕ್ತಿಗಳು ಮತ್ತು ಮಾಹಿತಿ ಕಾಲ್ಪನಿಕ. ಪ್ರತಿ ರಾತ್ರಿ ಮರುಹೊಂದಿಸಲಾಗುತ್ತದೆ.",
+  "Tap an account to sign in. PIN for all demo accounts": "ಸೈನ್ ಇನ್ ಮಾಡಲು ಖಾತೆಯನ್ನು ಸ್ಪರ್ಶಿಸಿ. ಎಲ್ಲಾ ಡೆಮೊ ಖಾತೆಗಳ PIN",
+  "DEMO — fictional data for practice. Resets every night.": "ಡೆಮೊ — ಅಭ್ಯಾಸಕ್ಕಾಗಿ ಕಾಲ್ಪನಿಕ ಮಾಹಿತಿ. ಪ್ರತಿ ರಾತ್ರಿ ಮರುಹೊಂದಿಸಲಾಗುತ್ತದೆ."
  },
  "clinical": {
   "Lips": "ತುಟಿಗಳು",
