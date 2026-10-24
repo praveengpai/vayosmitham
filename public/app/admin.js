@@ -74,7 +74,7 @@ function Dashboard() {
 // Recent questionnaire versions, so CIF sees every change AGeD publishes (and can restore an earlier one).
 function QuestionnaireChanges() {
   const q = useLoad(() => api('/api/admin/questionnaire'), []);
-  const recent = (q.data?.history || []).filter(h => Date.now() - Date.parse(h.created_at + 'Z') < 30 * 864e5).slice(0, 3);
+  const recent = (q.data?.history || []).filter(h => Date.now() - Date.parse(String(h.created_at).replace(' ', 'T') + 'Z') < 30 * 864e5).slice(0, 3);
   if (!recent.length) return '';
   return html`<div class="callout info small" style="margin-bottom:12px"><strong>${t('Questionnaire changes in the last 30 days')}</strong>
     <ul style="margin:6px 0 0;padding-left:18px">${recent.map(h => html`<li>${t('Version')} ${h.version} · ${h.created_at.slice(0, 10)} · ${h.created_by_name} — ${h.note}</li>`)}</ul>

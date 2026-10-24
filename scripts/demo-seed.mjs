@@ -233,7 +233,7 @@ function screeningFor(p, scenario, visitMins) {
     lesion: ['sore_ulcer'], drymouth: ['dry_mouth', 'swallowing'], bedbound: ['bad_breath'] }[scenario];
   const lang = STATES_LANG[p.state];
   const txtPool = COMPLAINT_TEXTS[lang] || [];
-  const ct = scenario !== 'healthy' && chance(0.6) && txtPool.length ? pick(txtPool)[0] : null;
+  const ct = scenario !== 'healthy' && (visitMins < 3 * DAY || chance(0.6)) && txtPool.length ? pick(txtPool)[0] : null;
   const extra = hasDenture ? { denture_out_night: chance(0.4), denture_cleaning: pick(['brush_soap_water', 'brush_paste', 'rinse_only', 'not_cleaned', 'soak']) } : {};
   const ohatTotal = Object.values(ohat).reduce((a, b) => a + b, 0);
   const gTotal = gohai.reduce((s, a, i) => s + ([2, 4, 6].includes(i) ? 6 - a : a), 0);
@@ -309,9 +309,10 @@ for (const w of WORKERS) {
     const nm = NAMES[lang];
     const name = lang === 'mr' ? `${pick(nm[sex])} ${pick(nm.S)}` : `${pick(nm[sex])} ${pick(nm.S)}`;
     const p = { id: `VS-D${String(personN).padStart(5, '0')}`, sex, birth_year: 2026 - int(60, 94), state: w.state, district: w.district, lsgd_type: w.lsgd_type, lsgd_name: w.lsgd_name, photos: chance(0.75) };
+    const enrolMins = chance(0.065) ? int(90, 3 * DAY) : int(5 * DAY, 360 * DAY);
+    if (enrolMins < 3 * DAY) p.photos = true; // cases waiting for a dentist always have photos in the demo
     const caregiver = chance(0.55);
     const status = chance(0.03) ? 'died' : chance(0.03) ? 'migrated' : chance(0.02) ? 'lost' : 'active';
-    const enrolMins = chance(0.065) ? int(90, 3 * DAY) : int(5 * DAY, 360 * DAY);
     idSql.push(`INSERT INTO persons (id, name, sex, birth_year, phone, address, pincode, state, district, lsgd_type, lsgd_name, ward, caregiver_name, caregiver_phone, caregiver_relation, worker_id, status, status_reason, created_at, updated_at) VALUES (${[
       p.id, name, sex, p.birth_year, chance(0.6) ? '90000' + String(int(10000, 99999)) : null, `House ${int(1, 400)}, Ward ${int(1, 20)} (demo address)`, null, p.state, p.district, p.lsgd_type, p.lsgd_name, String(int(1, 20)),
       caregiver ? `${pick(nm.F)} (demo)` : null, caregiver ? '90000' + String(int(10000, 99999)) : null, caregiver ? pick(RELATIONS) : null, w.id, status,
