@@ -15,8 +15,7 @@ scenes, errors = [], []
 def box(page, loc, pad=6):
     try:
         loc = loc.first
-        loc.scroll_into_view_if_needed(timeout=3000)
-        b = loc.bounding_box()
+        b = loc.bounding_box(timeout=3000)
         if not b: return None
         dpr = page.evaluate('devicePixelRatio')
         return [round((b['x'] - pad) * dpr), round((b['y'] - pad) * dpr), round((b['width'] + 2 * pad) * dpr), round((b['height'] + 2 * pad) * dpr)]
@@ -25,7 +24,12 @@ def box(page, loc, pad=6):
 
 def scene(page, device, say, focus=None, highlights=(), click=None, scroll_to=None, hold=0.6):
     """focus/highlights/click: locators (resolved to boxes after scrolling). The first highlight is scrolled into view."""
-    if scroll_to is not None: scroll_to.first.scroll_into_view_if_needed(timeout=3000); page.wait_for_timeout(250)
+    # Scroll once (to scroll_to, else the first highlight, else the tap target), then measure everything at that position.
+    anchor = scroll_to if scroll_to is not None else (highlights[0] if highlights else click)
+    if anchor is not None:
+        try: anchor.first.evaluate("el => el.scrollIntoView({block: 'center'})", timeout=3000)
+        except Exception as e: errors.append(f'scroll: {e}')
+        page.wait_for_timeout(300)
     hb = [box(page, h) for h in highlights]
     fb = box(page, focus, 30) if focus is not None else None
     cb = box(page, click, 0) if click is not None else None
