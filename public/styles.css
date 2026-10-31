@@ -273,3 +273,26 @@ table.t td.num, table.t th.num { text-align: right; font-variant-numeric: tabula
 .lang-pick { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
 .lang-pick button { flex: 1 1 auto; min-height: 40px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: #fff; cursor: pointer; font-size: .95rem; }
 .lang-pick button.on { background: var(--green); border-color: var(--green); color: #fff; font-weight: 700; }
+
+/* Dentist on a phone: compact header links, queue rows as cards, translation preview stacked */
+.top-links { margin-left: 16px; gap: 16px; }
+.top-links a { white-space: nowrap; }
+.preview-list { display: grid; gap: 12px; }
+.preview-item { display: grid; gap: 6px; }
+@media (max-width: 640px) {
+  .top-links { margin-left: 4px; gap: 12px; font-size: .95rem; }
+  .top-in:has(.top-links) .brand span { display: none; }
+  .table-wrap.cards-sm { border: 0; overflow: visible; }
+  table.t.cards, table.t.cards tbody { display: block; background: none; }
+  table.t.cards thead { display: none; }
+  table.t.cards tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius-m); padding: 12px; margin-bottom: 10px; }
+  table.t.cards td { display: block; border: 0; padding: 0; text-align: left; }
+  table.t.cards td:nth-child(2) { flex: 1 1 60%; }
+  table.t.cards td:nth-child(3) { flex: 1 1 100%; }
+  table.t.cards td[data-label]::before { content: attr(data-label) ' '; color: var(--ink-3); font-size: .8rem; }
+  table.t.cards td.act { flex: 1 1 100%; }
+  table.t.cards td.act .btn { width: 100%; }
+}
+.top-links { flex-wrap: nowrap; flex-shrink: 0; }
+.top-links a { text-decoration: none; font-weight: 700; }
+@media (max-width: 640px) { .top-in:has(.top-links) .who { font-size: .75rem; } }

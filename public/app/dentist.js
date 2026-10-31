@@ -22,7 +22,7 @@ export function DentistQueue() {
     <div class="row between"><h1 style="margin:0">${t('Cases waiting for an opinion')}</h1><button class="btn" onClick=${d.reload}>${t('Refresh')}</button></div>
     <p class="muted">${cases.length} ${t('waiting')}${urgent ? html` · <strong style="color:var(--red)">${urgent} ${t('urgent')}</strong>` : ''} · ${t('you have given')} ${d.data.my_opinion_count} ${t('opinions')}.${' '}
       ${t('Opening a case reserves it for you so no one else works on it.')}</p>
-    ${cases.length === 0 ? html`<div class="panel empty">${t('No cases are waiting. Thank you.')}</div>` : html`<div class="table-wrap"><table class="t">
+    ${cases.length === 0 ? html`<div class="panel empty">${t('No cases are waiting. Thank you.')}</div>` : html`<div class="table-wrap cards-sm"><table class="t cards">
       <thead><tr><th></th><th>${t('Person')}</th><th>${t('Complaints')}</th><th class="num">OHAT</th><th class="num">${t('Photos')}</th><th>${t('Waiting')}</th><th></th></tr></thead>
       <tbody>${cases.map(c => html`<tr>
         <td><${UrgencyChip} u=${c.urgency} />${c.assigned ? html` <span class="chip gold" title=${c.institution_name || ''}>${t('Assigned to you')}</span>`
@@ -30,9 +30,9 @@ export function DentistQueue() {
         <td>${sexLabel(c.sex)}, ${c.age_band}<br /><span class="tiny">${c.district}${c.state ? ', ' + c.state : ''}${c.bedbound ? ' · ' + t('bedbound') : ''}${c.previous_visits ? ` · ${c.previous_visits} ${t('earlier visit(s)')}` : ''}</span></td>
         <td class="small">${c.red_flags.map(k => html`<strong style="color:var(--red)">${L(RED_FLAGS.find(r => r.key === k))}</strong><br />`)}
           ${c.complaints.map(k => L(COMPLAINTS.find(x => x.key === k))).join(', ')}</td>
-        <td class="num">${c.ohat_total ?? '—'}</td><td class="num">${c.photo_count}</td>
-        <td class="nowrap small">${ago(c.submitted_at)}</td>
-        <td><button class="btn primary" onClick=${() => open(c)}>${c.mine ? t('Continue') : t('Open')}</button></td></tr>`)}</tbody></table></div>`}`;
+        <td class="num" data-label="OHAT">${c.ohat_total ?? '—'}</td><td class="num" data-label=${t('Photos')}>${c.photo_count}</td>
+        <td class="nowrap small" data-label=${t('Waiting')}>${ago(c.submitted_at)}</td>
+        <td class="act"><button class="btn primary" onClick=${() => open(c)}>${c.mine ? t('Continue') : t('Open')}</button></td></tr>`)}</tbody></table></div>`}`;
 }
 
 function useCountdown(until) {
@@ -162,10 +162,10 @@ function WorkerPreview({ f, lang }) {
       <button type="button" class="btn" disabled=${busy} onClick=${run}>${busy ? t('Translating…') : res ? t('Preview again') : t('Preview translation')}</button></div>
     <p class="tiny muted" style="margin:0">${t('Your opinion is shown to the field worker and the older person as a machine translation (AI). It is labelled as such, and your original stays the authoritative version. Read the English back-translation: if the meaning has changed, reword in simple language and preview again.')}</p>
     ${stale && html`<p class="tiny" style="color:var(--red);margin:0">${t('You changed the text after the preview — preview again before signing.')}</p>`}
-    ${res && html`<div class="table-wrap"><table class="t"><thead><tr><th></th><th>${t('Worker and older person see')}</th><th>${t('Back in English (to check the meaning)')}</th></tr></thead>
-      <tbody>${PREVIEW_PARTS.filter(([k]) => res.out[k]).map(([k, label]) => html`<tr><td class="small"><strong>${t(label)}</strong></td>
-        <td lang=${target}>${res.out[k].shown}${res.out[k].same ? html`<div class="tiny muted">${t('Already in this language — shown as written')}</div>` : ''}</td>
-        <td class="small">${res.out[k].back || '—'}</td></tr>`)}</tbody></table></div>`}
+    ${res && html`<div class="preview-list">${PREVIEW_PARTS.filter(([k]) => res.out[k]).map(([k, label]) => html`<div class="preview-item">
+        <strong class="small">${t(label)}</strong>
+        <div class="tx-box machine" lang=${target}><span class="tx-label">${t('Worker and older person see')}</span>${res.out[k].shown}${res.out[k].same ? html`<div class="tiny muted">${t('Already in this language — shown as written')}</div>` : ''}</div>
+        ${res.out[k].back && html`<div class="tx-box"><span class="tx-label">${t('Back in English (to check the meaning)')}</span>${res.out[k].back}</div>`}</div>`)}</div>`}
   </div>`;
 }
 

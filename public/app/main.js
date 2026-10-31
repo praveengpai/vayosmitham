@@ -92,7 +92,7 @@ function Frame({ children }) {
   return html`
     <header class="top"><div class="top-in">
       <a class="brand" href="#/"><${Logo} /><span>Vayosmitham</span></a>
-      ${u.role === 'dentist' && html`<nav class="row" style="margin-left:16px"><a href="#/" style="color:#fff">${t('Queue')}</a><a href="#/history" style="color:#fff">${t('My opinions')}</a></nav>`}
+      ${u.role === 'dentist' && html`<nav class="row top-links"><a href="#/" style="color:#fff">${t('Queue')}</a><a href="#/history" style="color:#fff">${t('My opinions')}</a></nav>`}
       <a class="who" href="#/me" style="color:#fff;text-decoration:none">${u.name}<br /><span class="tiny" style="color:#d8ece8">${t(roleName(u.role))}</span></a>
     </div></header>
     ${s.ref?.environment === 'demo' ? html`<div class="demo-bar">${t('DEMO — fictional data for practice. Resets every night.')}</div>`
