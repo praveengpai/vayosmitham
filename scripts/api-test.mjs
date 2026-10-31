@@ -119,7 +119,7 @@ ok(ag.user.role === 'clinical_admin', 'AGeD admin signs in');
 const dn = await ag.call('/api/admin/users', { method: 'POST', json: { role: 'dentist', name: 'Dr Second', phone: '98' + String(Date.now() + 7).slice(-8), reg_council: 'KSDC', reg_number: 'KSDC-2' } });
 ok(dn.status === 200, 'AGeD admin creates a volunteer dentist');
 const agUsers = await ag.call('/api/admin/users');
-ok(agUsers.status === 200 && agUsers.data.users.every(u => ['dentist', 'auditor'].includes(u.role)), 'AGeD admin sees only dentists and auditors');
+ok(agUsers.status === 200 && agUsers.data.users.every(u => ['dentist', 'auditor', 'institution_admin'].includes(u.role)), 'AGeD admin sees only dentists, auditors and institution coordinators');
 ok((await ag.call('/api/admin/users', { method: 'POST', json: { role: 'worker', name: 'W', phone: '95' + String(Date.now()).slice(-8), state: 'Kerala', district: 'Ernakulam', lsgd_type: 'municipality', lsgd_name: 'X' } })).status === 403, 'AGeD admin cannot create field workers');
 ok((await ag.call('/api/persons')).status === 403, 'AGeD admin cannot open identifiable person records');
 ok((await ag.call('/api/admin/consents')).status === 403, 'AGeD admin cannot read the consent log');
@@ -169,6 +169,66 @@ ok((await sa.call('/api/admin/consents')).status === 200 && (await sa.call('/api
 ok((await ad.call('/api/admin/settings', { method: 'POST', json: { grievance_days: '29' } })).status === 200, 'admin saves settings');
 const st = await w.call('/api/ref');
 ok(st.data.settings.grievance_days !== '29', 'only the super admin can change privacy notice details');
+
+console.log('institutions');
+const insRes = await ag.call('/api/admin/institutions', { method: 'POST', json: { name: 'Test Dental College ' + Date.now(), kind: 'dental_college', state: 'Kerala', district: 'Ernakulam' } });
+ok(insRes.status === 200, 'AGeD admin creates an institution');
+const instId = insRes.data.id;
+const pinFor = async (s0, role, extra) => {
+  const ph = '97' + String(Date.now() + Math.floor(Math.random() * 1e5)).slice(-8);
+  const r = await s0.call('/api/admin/users', { method: 'POST', json: { role, name: role + ' test', phone: ph, ...extra } });
+  return { ...r, phone: ph };
+};
+const ia = await pinFor(ag, 'institution_admin', { institution_id: instId });
+ok(ia.status === 200, 'AGeD admin creates the institution coordinator');
+ok((await pinFor(ag, 'institution_admin', {})).status === 400, 'institution coordinator needs an institution');
+// first sign-in: change the temporary PIN
+const firstLogin = async (phone, temp) => {
+  const r = await fetch(BASE + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ phone, pin: temp }) });
+  const cookie = (r.headers.get('set-cookie') || '').split(';')[0];
+  await fetch(BASE + '/api/me/pin', { method: 'POST', headers: { cookie, 'content-type': 'application/json' }, body: JSON.stringify({ current: temp, new: PIN }) });
+  return session(phone);
+};
+const isess = await firstLogin(ia.phone, ia.data.temporary_pin);
+ok(isess.user.role === 'institution_admin', 'institution coordinator signs in');
+const idn = await isess.call('/api/admin/users', { method: 'POST', json: { role: 'dentist', name: 'Dr Inst Dentist', phone: '96' + String(Date.now()).slice(-8), reg_council: 'KSDC', reg_number: 'INST-1', institution_id: 'someone-else' } });
+ok(idn.status === 200, 'institution coordinator adds a dentist (always to her own institution)');
+ok((await isess.call('/api/admin/users', { method: 'POST', json: { role: 'worker', name: 'x', phone: '95' + String(Date.now()).slice(-8), state: 'Kerala', district: 'Ernakulam', lsgd_type: 'municipality', lsgd_name: 'x' } })).status === 403, 'institution coordinator cannot add field workers');
+const iu = await isess.call('/api/admin/users');
+ok(iu.data.users.length === 1 && iu.data.users[0].institution_id === instId, 'institution coordinator sees only her dentists');
+const dsess = await firstLogin(iu.data.users[0].phone, idn.data.temporary_pin);
+// a fresh case to assign
+const v3 = { ...visit, client_uuid: crypto.randomUUID(), person: undefined, person_id: personId, visit_type: 'problem', consents: [], red_flags: [], screening: { ...visit.screening } };
+const sub3 = await w.call('/api/visits', { method: 'POST', json: v3 });
+const iq = await isess.call('/api/institution/queue?state=Kerala');
+ok(iq.status === 200 && iq.data.open.some(c => c.id === sub3.data.case_id), 'open queue (filtered by state) shows the new case');
+ok(!JSON.stringify(iq.data.open).includes('Kamalakshi'), 'institution queue shows no patient names');
+const as = await isess.call(`/api/institution/cases/${sub3.data.case_id}/assign`, { method: 'POST', json: { dentist_id: iu.data.users[0].id } });
+ok(as.status === 200, 'institution assigns the case to its dentist');
+const dq2 = await d.call('/api/dentist/queue');
+ok(!dq2.data.cases.some(c => c.id === sub3.data.case_id), 'other dentists no longer see the assigned case');
+const myq = await dsess.call('/api/dentist/queue');
+ok(myq.data.cases[0]?.id === sub3.data.case_id && myq.data.cases[0].assigned && myq.data.cases[0].institution_name, 'assigned dentist sees it first, marked as assigned');
+await dsess.call(`/api/dentist/cases/${sub3.data.case_id}/claim`, { method: 'POST' });
+const dcase = await dsess.call('/api/dentist/cases/' + sub3.data.case_id);
+ok(dcase.data.case.worker_lang, 'dentist knows the field worker\'s language for the translation preview');
+const sg = await dsess.call(`/api/dentist/cases/${sub3.data.case_id}/opinion`, { method: 'POST', json: { impression: 'Loose lower denture.', advice: 'Remove at night.', followup_months: 6 } });
+ok(sg.status === 200, 'assigned dentist signs the opinion');
+const rep2 = await w.call(`/api/cases/${sub3.data.case_id}/report`);
+ok(rep2.data.dentist.institution && rep2.data.opinion.institution_name, 'referral report shows the institution');
+const vp = await fetch(BASE + '/v/' + rep2.data.opinion.verify_code).then(r => r.text());
+ok(vp.includes('Institution'), 'verify page shows the institution');
+const ir = await isess.call('/api/institution/report');
+ok(ir.data.totals.opinions === 1 && ir.data.by_dentist[0].opinions === 1, 'institution report counts its opinions');
+const iq2 = await isess.call('/api/institution/queue');
+ok(iq2.data.assigned.some(a => a.id === sub3.data.case_id && a.state_label === 'done'), 'institution sees the case as done');
+const dash2 = await sa.call('/api/admin/dashboard?state=Kerala');
+ok(dash2.data.institutions.some(r => r.institution_id === instId && r.opinions === 1) && dash2.data.by_state.some(r => r.state === 'Kerala'), 'dashboard lists participating institutions and states');
+const dashI = await sa.call('/api/admin/dashboard?institution=' + instId);
+ok(dashI.data.totals.cases === 1, 'dashboard filters by institution');
+ok((await sa.call('/api/admin/dashboard?state=Maharashtra')).data.totals.cases === 0, 'dashboard filters by state');
+const csv2 = await sa.call('/api/admin/indicators.csv');
+ok(csv2.data.includes('institution:Test Dental College'), 'indicator export includes institutions');
 
 console.log('worker cannot see admin');
 ok((await w.call('/api/admin/dashboard')).status === 403, 'worker blocked from dashboard');

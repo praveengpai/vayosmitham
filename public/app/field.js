@@ -150,7 +150,7 @@ export function CaseView({ id }) {
       <div class="panel stack">
         <div class="row between"><h2 style="margin:0">${t("Dentist's opinion")}</h2>
           ${opinion.text_lang !== target && html`<label class="switch"><input type="checkbox" role="switch" checked=${showTx} onChange=${e => setShowTx(e.target.checked)} /><span>${t('Translate')}</span></label>`}</div>
-        <p class="tiny">${t('Reviewed by an AGeD volunteer dentist on')} ${fmtDate(opinion.signed_at)}. ${t('Advisory screening opinion, not a diagnosis or prescription.')}</p>
+        <p class="tiny">${opinion.institution_name ? `${t('Reviewed by a dentist from')} ${opinion.institution_name} · ${fmtDate(opinion.signed_at)}` : `${t('Reviewed by an AGeD volunteer dentist on')} ${fmtDate(opinion.signed_at)}`}. ${t('Advisory screening opinion, not a diagnosis or prescription.')}</p>
         ${opinion.cannot_assess ? html`<div class="callout warn">${t('The dentist could not assess this from the photos and answers. The person needs an in-person dental examination.')}</div>` : ''}
         ${[['impression', 'What the dentist sees'], ['advice', 'Advice'], ['care_plan', 'Care plan'], ['findings', 'Findings']].map(([k, label]) => opinion[k] && html`<div>
           <h3>${t(label)}</h3><${TranslatedText} text=${opinion[k]} lang=${opinion.text_lang} target=${target} show=${showTx} /></div>`)}

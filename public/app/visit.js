@@ -190,7 +190,7 @@ function PersonStep({ p, upd, user }) {
       ${!showLoc && html`<p class="tiny">${t('Filled in from your own area.')}</p>`}
       ${showLoc && html`<div class="stack" style="margin-top:12px">
         <div class="grid-2">
-          <${Field} label=${t('State')}><select value=${p.state} onChange=${e => { upd('person.state', e.target.value); upd('person.district', ''); }}>${STATES.map(x => html`<option>${x}</option>`)}</select><//>
+          <${Field} label=${t('State')}><select value=${p.state} onChange=${e => { upd('person.state', e.target.value); upd('person.district', ''); }}>${STATES.map(x => html`<option value=${x}>${x}</option>`)}</select><//>
           <${Field} label=${t('District')}><${DistrictInput} state=${p.state} value=${p.district} onChange=${x => { upd('person.district', x); upd('person.lsgd_name', ''); }} /><//>
         </div>
         <${Field} label=${t('LSGD type')}><select value=${p.lsgd_type} onChange=${e => upd('person.lsgd_type', e.target.value)}><option value="">—</option>${LSGD_TYPES.map(x => html`<option value=${x.key}>${L(x)}</option>`)}</select><//>

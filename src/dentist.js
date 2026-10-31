@@ -5,36 +5,37 @@ import { requireRole } from './auth.js';
 import { expandScreening } from './field.js';
 import { REFERRAL_TYPES, detectLang } from '../public/shared/clinical.js';
 
-const CASE_FIELDS = 'c.id, c.person_id, c.visit_type, c.status, c.urgency, c.red_flags, c.age_band, c.sex, c.district, c.lsgd_type, c.bedbound, c.claimed_by, c.claim_expires, c.submitted_at';
+const CASE_FIELDS = 'c.id, c.person_id, c.visit_type, c.status, c.urgency, c.red_flags, c.age_band, c.sex, c.state, c.district, c.lsgd_type, c.bedbound, c.claimed_by, c.claim_expires, c.submitted_at, c.assigned_to, c.institution_id, c.worker_lang';
 
 export async function queue(env, req, user) {
   requireRole(user, 'dentist');
   const { results } = await env.CLINICAL.prepare(
-    `SELECT ${CASE_FIELDS}, s.complaints, s.ohat_total,
+    `SELECT ${CASE_FIELDS}, s.complaints, s.ohat_total, i.name AS institution_name,
        (SELECT COUNT(*) FROM images i WHERE i.case_id = c.id AND i.view <> 'voice_note') AS photo_count,
        (SELECT COUNT(*) FROM cases p WHERE p.person_id = c.person_id AND p.id <> c.id) AS previous_visits
-     FROM cases c LEFT JOIN screenings s ON s.case_id = c.id
+     FROM cases c LEFT JOIN screenings s ON s.case_id = c.id LEFT JOIN institutions i ON i.id = c.institution_id
      WHERE c.status = 'submitted' AND (c.claimed_by IS NULL OR c.claim_expires < datetime('now') OR c.claimed_by = ?)
-     ORDER BY CASE WHEN c.claimed_by = ? THEN 0 ELSE 1 END, CASE c.urgency WHEN 'urgent' THEN 0 ELSE 1 END, c.submitted_at
-     LIMIT 100`).bind(user.id, user.id).all();
+     ORDER BY CASE WHEN c.claimed_by = ? AND c.assigned_to = c.claimed_by THEN 0 WHEN c.claimed_by = ? THEN 1 ELSE 2 END, CASE c.urgency WHEN 'urgent' THEN 0 ELSE 1 END, c.submitted_at
+     LIMIT 100`).bind(user.id, user.id, user.id).all();
   const mine = await env.CLINICAL.prepare('SELECT COUNT(*) AS n FROM opinions WHERE dentist_id = ?').bind(user.id).first();
   return json({
-    cases: results.map(r => ({ ...strip(r), mine: r.claimed_by === user.id && r.claim_expires > sqlNow(), red_flags: parseJSON(r.red_flags, []), complaints: parseJSON(r.complaints, []) })),
+    cases: results.map(r => ({ ...strip(r), mine: r.claimed_by === user.id && r.claim_expires > sqlNow(),
+      assigned: r.assigned_to === user.id && r.claimed_by === user.id && r.claim_expires > sqlNow(), red_flags: parseJSON(r.red_flags, []), complaints: parseJSON(r.complaints, []) })),
     my_opinion_count: mine.n,
   });
 }
 
 function sqlNow() { return new Date().toISOString().replace('T', ' ').slice(0, 19); }
 // person_id is pseudonymous, but the dentist UI does not need it; keep it out of list views.
-function strip(r) { const { person_id, claimed_by, ...rest } = r; void person_id; void claimed_by; return rest; }
+function strip(r) { const { person_id, claimed_by, assigned_to, ...rest } = r; void person_id; void claimed_by; void assigned_to; return rest; }
 
 export async function claim(env, req, user, cid) {
   requireRole(user, 'dentist');
   const s = await getSettings(env);
   const r = await env.CLINICAL.prepare(
-    `UPDATE cases SET claimed_by = ?, claim_expires = ? WHERE id = ? AND status = 'submitted'
-       AND (claimed_by IS NULL OR claim_expires < datetime('now') OR claimed_by = ?)`)
-    .bind(user.id, addMinutes(Number(s.claim_minutes || 30)), cid, user.id).run();
+    `UPDATE cases SET claimed_by = ?, claim_expires = MAX(?, CASE WHEN claimed_by = ? THEN COALESCE(claim_expires, '') ELSE '' END)
+       WHERE id = ? AND status = 'submitted' AND (claimed_by IS NULL OR claim_expires < datetime('now') OR claimed_by = ?)`)
+    .bind(user.id, addMinutes(Number(s.claim_minutes || 30)), user.id, cid, user.id).run();
   if (!r.meta.changes) throw new HttpError(409, 'Another dentist has already taken this case. It has been removed from your list.');
   await audit(env, user, 'case.claim', 'case', cid);
   return json({ ok: true, minutes: Number(s.claim_minutes || 30) });
@@ -42,7 +43,10 @@ export async function claim(env, req, user, cid) {
 
 export async function release(env, req, user, cid) {
   requireRole(user, 'dentist');
-  await env.CLINICAL.prepare("UPDATE cases SET claimed_by = NULL, claim_expires = NULL WHERE id = ? AND claimed_by = ? AND status = 'submitted'").bind(cid, user.id).run();
+  // Putting back an institution-assigned case also ends the assignment, so the institution can reassign it.
+  await env.CLINICAL.prepare(`UPDATE cases SET claimed_by = NULL, claim_expires = NULL,
+      assigned_to = CASE WHEN assigned_to = ? THEN NULL ELSE assigned_to END, institution_id = CASE WHEN assigned_to = ? THEN NULL ELSE institution_id END
+    WHERE id = ? AND claimed_by = ? AND status = 'submitted'`).bind(user.id, user.id, cid, user.id).run();
   await audit(env, user, 'case.release', 'case', cid);
   return json({ ok: true });
 }
@@ -94,12 +98,14 @@ export async function saveOpinion(env, req, user, cid) {
   const sampled = Math.random() * 100 < Number(s.audit_sample_percent || 10) ? 1 : 0;
   const id = uid('OP-');
   const c = await env.CLINICAL.prepare('SELECT person_id, worker_id FROM cases WHERE id = ?').bind(cid).first();
+  const inst = await dentistInstitution(env, user);
   const stmts = [
     env.CLINICAL.prepare(
       `INSERT INTO opinions (id, case_id, version, dentist_id, findings, impression, impression_codes, advice, care_plan, note, text_lang, followup_months,
-        referral_needed, referral_type, referral_urgency, referral_message, cannot_assess, kb_items, verify_code)
-       VALUES (?,?,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(id, cid, user.id, o.findings, o.impression, '[]', o.advice, o.care_plan, o.note, o.text_lang,
-      o.followup_months, o.referral_needed, o.referral_type, o.referral_urgency, o.referral_message, o.cannot_assess, JSON.stringify(o.kb_items), randomCode(10)),
+        referral_needed, referral_type, referral_urgency, referral_message, cannot_assess, kb_items, verify_code, institution_id, institution_name)
+       VALUES (?,?,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(id, cid, user.id, o.findings, o.impression, '[]', o.advice, o.care_plan, o.note, o.text_lang,
+      o.followup_months, o.referral_needed, o.referral_type, o.referral_urgency, o.referral_message, o.cannot_assess, JSON.stringify(o.kb_items), randomCode(10),
+      inst?.id || null, inst?.name || null),
     env.CLINICAL.prepare("UPDATE cases SET status = 'opinion', opinion_at = datetime('now'), claimed_by = NULL, claim_expires = NULL, sampled_for_audit = ? WHERE id = ?").bind(sampled, cid),
   ];
   if (o.referral_needed) {
@@ -113,6 +119,12 @@ export async function saveOpinion(env, req, user, cid) {
   await env.CLINICAL.batch(stmts);
   await audit(env, user, 'opinion.sign', 'case', cid, { opinion: id, referral: o.referral_needed });
   return json({ id });
+}
+
+// The institution the dentist belongs to (kept on each opinion for reports). Institutions live in the clinical store.
+async function dentistInstitution(env, user) {
+  if (!user.institution_id) return null;
+  return env.CLINICAL.prepare('SELECT id, name FROM institutions WHERE id = ?').bind(user.institution_id).first();
 }
 
 function cleanOpinion(b, hint) {
@@ -174,9 +186,10 @@ export async function correctOpinion(env, req, user, oid) {
   await env.CLINICAL.batch([
     env.CLINICAL.prepare(
       `INSERT INTO opinions (id, case_id, version, dentist_id, findings, impression, impression_codes, advice, care_plan, note, text_lang, followup_months,
-        referral_needed, referral_type, referral_urgency, referral_message, cannot_assess, kb_items, verify_code, correction_reason)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(id, old.case_id, old.version + 1, user.id, o.findings, o.impression, '[]', o.advice, o.care_plan, o.note,
-      o.text_lang, o.followup_months, o.referral_needed, o.referral_type, o.referral_urgency, o.referral_message, o.cannot_assess, JSON.stringify(o.kb_items), randomCode(10), reason),
+        referral_needed, referral_type, referral_urgency, referral_message, cannot_assess, kb_items, verify_code, correction_reason, institution_id, institution_name)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(id, old.case_id, old.version + 1, user.id, o.findings, o.impression, '[]', o.advice, o.care_plan, o.note,
+      o.text_lang, o.followup_months, o.referral_needed, o.referral_type, o.referral_urgency, o.referral_message, o.cannot_assess, JSON.stringify(o.kb_items), randomCode(10), reason,
+      old.institution_id, old.institution_name),
     env.CLINICAL.prepare('UPDATE opinions SET superseded_by = ? WHERE id = ?').bind(id, oid),
     ...(o.referral_needed ? [env.CLINICAL.prepare("INSERT OR IGNORE INTO referrals (id, case_id, status) VALUES (?, ?, 'pending')").bind(uid('RF-'), old.case_id)] : []),
   ]);

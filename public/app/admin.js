@@ -2,26 +2,29 @@
 import { html, useState, useEffect, state, useAppState, go, t, L, toast, DistrictInput, useLoad, Loading, Field, Choices, Thumbs, fmtDate, ago, UrgencyChip, loadRef, roleName } from './ui.js';
 import { api } from './api.js';
 import { ScreeningSummary } from './field.js';
-import { STATES, ALL_DISTRICTS, LANGUAGES, LSGD_TYPES, PHOTO_VIEWS, REFERRAL_TYPES, RED_FLAGS } from '/shared/clinical.js';
+import { STATES, ALL_DISTRICTS, DISTRICTS, LANGUAGES, LSGD_TYPES, PHOTO_VIEWS, REFERRAL_TYPES, RED_FLAGS } from '/shared/clinical.js';
 import { CONSENT_VERSION, isDraft } from '/shared/consent.js';
 import { QuestionnaireEditor } from './questionnaire-editor.js';
+import { InstitutionQueue, InstitutionReport, INSTITUTION_KINDS } from './institution.js';
 
 // Which accounts each role manages (mirrors src/admin.js MANAGES).
 const MANAGES = {
-  superadmin: ['superadmin', 'admin', 'clinical_admin', 'coordinator', 'worker', 'dentist', 'auditor', 'dpo', 'researcher'],
+  superadmin: ['superadmin', 'admin', 'clinical_admin', 'institution_admin', 'coordinator', 'worker', 'dentist', 'auditor', 'dpo', 'researcher'],
   admin: ['coordinator', 'worker', 'dpo', 'researcher'],
-  clinical_admin: ['dentist', 'auditor'],
+  clinical_admin: ['dentist', 'auditor', 'institution_admin'],
+  institution_admin: ['dentist'],
   coordinator: ['worker'],
 };
 const ADMINS = ['admin', 'superadmin'];
 
-const ADMIN_SECTIONS = [['dashboard', 'Dashboard'], ['users', 'Users'], ['questionnaire', 'Questionnaire'], ['referral_centres', 'Referral centres'], ['kb_items', 'Knowledge base'], ['glossary', 'Glossary'],
+const ADMIN_SECTIONS = [['dashboard', 'Dashboard'], ['users', 'Users'], ['questionnaire', 'Questionnaire'], ['institutions', 'Institutions'], ['referral_centres', 'Referral centres'], ['kb_items', 'Knowledge base'], ['glossary', 'Glossary'],
   ['lsgds', 'Local bodies'], ['settings', 'Settings'], ['audit-log', 'Access log'], ['consents', 'Consent log'], ['exports', 'Exports'], ['audit', 'Clinical audit']];
 const SECTIONS = {
   superadmin: ADMIN_SECTIONS,
   admin: ADMIN_SECTIONS,
-  clinical_admin: [['dashboard', 'Dashboard'], ['questionnaire', 'Questionnaire'], ['users', 'Dentists and auditors'], ['kb_items', 'Knowledge base'], ['glossary', 'Glossary'], ['audit', 'Clinical audit']],
+  clinical_admin: [['dashboard', 'Dashboard'], ['questionnaire', 'Questionnaire'], ['institutions', 'Institutions'], ['users', 'Dentists and auditors'], ['kb_items', 'Knowledge base'], ['glossary', 'Glossary'], ['audit', 'Clinical audit']],
   coordinator: [['dashboard', 'Dashboard'], ['users', 'Field workers']],
+  institution_admin: [['inst-queue', 'Assign cases'], ['users', 'Our dentists'], ['inst-report', 'Our contribution']],
   dpo: [['dashboard', 'Dashboard'], ['audit-log', 'Access log'], ['consents', 'Consent log']],
   researcher: [['exports', 'Exports']],
   auditor: [['audit', 'Clinical audit'], ['kb_items', 'Knowledge base'], ['questionnaire', 'Questionnaire']],
@@ -39,6 +42,8 @@ export function AdminArea({ section, id }) {
   else if (section === 'users') body = html`<${Users} />`;
   else if (section === 'settings') body = html`<${Settings} />`;
   else if (section === 'questionnaire') body = html`<${QuestionnaireEditor} />`;
+  else if (section === 'inst-queue') body = html`<${InstitutionQueue} />`;
+  else if (section === 'inst-report') body = html`<${InstitutionReport} />`;
   else if (section === 'audit-log') body = html`<${AccessLog} />`;
   else if (section === 'consents') body = html`<${ConsentLog} />`;
   else if (section === 'exports') body = html`<${Exports} />`;
@@ -54,7 +59,10 @@ export function AdminArea({ section, id }) {
 // ---------- dashboard ----------
 function Dashboard() {
   const s = useAppState();
-  const [f, setF] = useState({ district: '', from: '', to: '' });
+  const [f, setF] = useState({ state: '', district: '', institution: '', from: '', to: '' });
+  useEffect(() => { loadRef(); }, []);
+  const districts = f.state ? (DISTRICTS[f.state] || []) : ALL_DISTRICTS;
+  const insts = (s.ref?.institutions || []).filter(i => !f.state || i.state === f.state);
   const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => v)).toString();
   const d = useLoad(() => api('/api/admin/dashboard?' + qs), [qs]);
   const coord = s.user.role === 'coordinator';
@@ -62,8 +70,13 @@ function Dashboard() {
     <div class="row between"><h1 style="margin:0">${coord ? `${t('Dashboard')} — ${s.user.district}` : t('Programme dashboard')}</h1>
       <a class="btn" href=${'/api/admin/indicators.csv?' + qs}>${t('Download indicators (CSV)')}</a></div>
     <div class="row" style="margin:12px 0">
-      ${!coord && html`<select style="max-width:220px" value=${f.district} onChange=${e => setF({ ...f, district: e.target.value })} aria-label=${t('District')}>
-        <option value="">${t('All districts')}</option>${ALL_DISTRICTS.map(x => html`<option>${x}</option>`)}</select>`}
+      ${!coord && html`<select style="max-width:190px" value=${f.state} onChange=${e => setF({ ...f, state: e.target.value, district: '', institution: '' })} aria-label=${t('State')}>
+        <option value="">${t('All states')}</option>${STATES.filter(x => x !== 'Other').map(x => html`<option value=${x}>${x}</option>`)}</select>
+      <select style="max-width:200px" value=${f.district} onChange=${e => setF({ ...f, district: e.target.value })} aria-label=${t('District')}>
+        <option value="">${f.state ? t('All districts') + ' — ' + f.state : t('All districts')}</option>${districts.map(x => html`<option value=${x}>${x}</option>`)}</select>
+      <select style="max-width:240px" value=${f.institution} onChange=${e => setF({ ...f, institution: e.target.value })} aria-label=${t('Institution')}>
+        <option value="">${t('All dentists and institutions')}</option><option value="none">${t('Individual volunteer dentists')}</option>
+        ${insts.map(i => html`<option value=${i.id}>${i.name}</option>`)}</select>`}
       <label class="row small">${t('From')} <input type="date" style="max-width:170px" value=${f.from} onInput=${e => setF({ ...f, from: e.target.value })} /></label>
       <label class="row small">${t('To')} <input type="date" style="max-width:170px" value=${f.to} onInput=${e => setF({ ...f, to: e.target.value })} /></label>
     </div>
@@ -112,12 +125,21 @@ function DashBody({ d }) {
       <div class="panel"><h2>${t('Visits by month')}</h2>${bars(d.trend, 'month', 'cases')}</div>
       <div class="panel"><h2>${t('Referral outcomes')}</h2>${bars(d.referrals.map(r => ({ ...r, label: t({ pending: 'Not yet known', reached: 'Went', not_reached: 'Did not go' }[r.status]) })), 'label', 'n')}</div>
     </div>
+    <div class="panel" style="margin-top:16px"><h2>${t('Participating institutions')}</h2>
+      <p class="tiny muted">${t('Dental colleges, hospitals, clinics and individual volunteer dentists who gave opinions in this period.')}</p>
+      <div class="table-wrap"><table class="t">
+      <thead><tr><th>${t('Institution')}</th><th>${t('Type')}</th><th>${t('Place')}</th><th class="num">${t('Dentists')}</th><th class="num">${t('Opinions')}</th><th class="num">${t('Urgent')}</th><th class="num">${t('Referrals advised')}</th><th class="num">${t('Avg hours to opinion')}</th></tr></thead>
+      <tbody>${(d.institutions || []).map(r => html`<tr><td><strong>${r.name || t('Individual volunteer dentists')}</strong></td><td class="small">${r.kind ? t(INSTITUTION_KINDS[r.kind] || r.kind) : '—'}</td>
+        <td class="small">${[r.district, r.state].filter(Boolean).join(', ') || '—'}</td><td class="num">${r.dentists}</td><td class="num">${r.opinions}</td><td class="num">${r.urgent || 0}</td><td class="num">${r.referrals || 0}</td>
+        <td class="num">${r.avg_hours == null ? '—' : Math.round(r.avg_hours)}</td></tr>`)}</tbody></table></div></div>
     <div class="panel" style="margin-top:16px"><h2>${t('Teeth by age (first visits)')}</h2><div class="table-wrap"><table class="t">
       <thead><tr><th>${t('Age')}</th><th class="num">${t('Screened')}</th><th class="num">${t('20+ teeth')}</th><th class="num">${t('No teeth')}</th><th class="num">${t('Mean GOHAI')}</th></tr></thead>
       <tbody>${d.teeth_by_age.map(r => html`<tr><td>${r.age_band}</td><td class="num">${r.n}</td><td class="num">${pct(r.functional, r.n)}</td><td class="num">${pct(r.edentulous, r.n)}</td>
         <td class="num">${r.gohai ? r.gohai.toFixed(1) : '—'}</td></tr>`)}</tbody></table></div>
       <p class="tiny">${t('Indicators follow WHO oral health survey definitions. Exports hide counts below')} ${d.small_cell_threshold}.</p></div>
     <div class="cols-2" style="margin-top:16px">
+      <div class="panel"><h2>${t('By state')}</h2><div class="table-wrap"><table class="t"><thead><tr><th>${t('State')}</th><th class="num">${t('People')}</th><th class="num">${t('Visits')}</th><th class="num">${t('Urgent')}</th></tr></thead>
+        <tbody>${(d.by_state || []).map(r => html`<tr><td>${r.state}</td><td class="num">${r.persons}</td><td class="num">${r.cases}</td><td class="num">${r.urgent}</td></tr>`)}</tbody></table></div></div>
       <div class="panel"><h2>${t('By district')}</h2><div class="table-wrap"><table class="t"><thead><tr><th>${t('District')}</th><th class="num">${t('People')}</th><th class="num">${t('Visits')}</th><th class="num">${t('Urgent')}</th></tr></thead>
         <tbody>${d.by_district.map(r => html`<tr><td>${r.district}</td><td class="num">${r.persons}</td><td class="num">${r.cases}</td><td class="num">${r.urgent}</td></tr>`)}</tbody></table></div></div>
       <div class="panel"><h2>${t('Clinical audit')}</h2><dl class="kv"><dt>${t('Sampled')}</dt><dd>${d.audit?.sampled || 0}</dd><dt>${t('Reviewed')}</dt><dd>${d.audit?.done || 0}</dd>
@@ -151,7 +173,8 @@ function Users() {
       <tbody>${users.map(u => html`<tr style=${u.active ? '' : 'opacity:.55'}>
         <td><strong>${u.name}</strong>${u.must_change ? html` <span class="chip warn">${t('PIN not set')}</span>` : ''}${!u.active ? html` <span class="chip">${t('inactive')}</span>` : ''}</td>
         <td>${t(roleName(u.role))}</td><td>${u.phone}</td>
-        <td class="small">${u.role === 'dentist' ? `${u.reg_council || ''} ${u.reg_number || ''}${u.reg_verified_at ? ' ✓' : ''}` : [u.lsgd_name, u.ward && `${t('ward')} ${u.ward}`, u.district].filter(Boolean).join(', ')}</td>
+        <td class="small">${u.role === 'dentist' ? `${u.reg_council || ''} ${u.reg_number || ''}${u.reg_verified_at ? ' ✓' : ''}` : u.role === 'institution_admin' ? '' : [u.lsgd_name, u.ward && `${t('ward')} ${u.ward}`, u.district].filter(Boolean).join(', ')}
+          ${u.institution_id ? html`<br /><span class="tiny">${(s.ref?.institutions || []).find(i => i.id === u.institution_id)?.name || ''}</span>` : ''}</td>
         <td class="nowrap"><button class="btn link" onClick=${() => setEdit(u)}>${t('Edit')}</button><button class="btn link" onClick=${() => resetPin(u)}>${t('Reset PIN')}</button></td></tr>`)}</tbody></table></div>`;
 }
 
@@ -160,7 +183,9 @@ function UserForm({ u, onDone }) {
   const coord = s.user.role === 'coordinator';
   const [f, setF] = useState({ role: u.role || ((MANAGES[s.user.role] || []).includes('worker') ? 'worker' : 'dentist'), name: u.name || '', phone: u.phone || '', email: u.email || '', organisation: u.organisation || '',
     state: u.state || (coord ? s.user.state : 'Kerala'), district: u.district || (coord ? s.user.district : ''), lsgd_type: u.lsgd_type || '', lsgd_name: u.lsgd_name || '', ward: u.ward || '',
-    reg_council: u.reg_council || 'Kerala State Dental Council', reg_number: u.reg_number || '', reg_verified: false, active: u.active !== 0, content_lang: u.content_lang || 'ml', pincode: u.pincode || '' });
+    reg_council: u.reg_council || 'Kerala State Dental Council', reg_number: u.reg_number || '', reg_verified: false, active: u.active !== 0, content_lang: u.content_lang || 'ml', pincode: u.pincode || '',
+    institution_id: u.institution_id || (s.user.role === 'institution_admin' ? s.user.institution_id : '') });
+  const instAdmin = s.user.role === 'institution_admin';
   const set = k => e => setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
   const lsgds = (s.ref?.lsgds || []).filter(l => l.district === f.district && (!f.lsgd_type || l.kind === f.lsgd_type));
   useEffect(() => { loadRef(); }, []);
@@ -180,7 +205,7 @@ function UserForm({ u, onDone }) {
     <div class="grid-2"><${Field} label=${t('Email (optional)')}><input type="email" value=${f.email} onInput=${set('email')} /><//>
       <${Field} label=${t('Organisation')}><input type="text" value=${f.organisation} onInput=${set('organisation')} /><//></div>
     ${(f.role === 'worker' || f.role === 'coordinator') && html`
-      <div class="grid-2"><${Field} label=${t('State')}><select value=${f.state} onChange=${set('state')} disabled=${coord}>${STATES.map(x => html`<option>${x}</option>`)}</select><//>
+      <div class="grid-2"><${Field} label=${t('State')}><select value=${f.state} onChange=${set('state')} disabled=${coord}>${STATES.map(x => html`<option value=${x}>${x}</option>`)}</select><//>
         <${Field} label=${t('District')}><${DistrictInput} state=${f.state} value=${f.district} disabled=${coord} onChange=${x => setF({ ...f, district: x })} /><//></div>
       ${f.role === 'worker' && html`<div class="grid-3">
         <${Field} label=${t('LSGD type')}><select value=${f.lsgd_type} onChange=${set('lsgd_type')}><option value="">—</option>${LSGD_TYPES.map(x => html`<option value=${x.key}>${L(x)}</option>`)}</select><//>
@@ -188,6 +213,9 @@ function UserForm({ u, onDone }) {
         <${Field} label=${t('Ward')}><input type="text" value=${f.ward} onInput=${set('ward')} /><//></div>
         <${Field} label=${t('Postal PIN code (optional)')}><input type="text" inputmode="numeric" maxlength="6" style="max-width:160px" value=${f.pincode} onInput=${set('pincode')} /><//>
         <${Field} label=${t('Reads and writes in')}><select value=${f.content_lang} onChange=${set('content_lang')}>${LANGUAGES.map(l => html`<option value=${l.code}>${l.native}</option>`)}</select><//>`}`}
+    ${(f.role === 'dentist' || f.role === 'institution_admin') && html`<${Field} label=${t('Institution')} hint=${f.role === 'dentist' ? t('Leave empty for an individual volunteer dentist') : ''}>
+      <select value=${f.institution_id} disabled=${instAdmin} onChange=${set('institution_id')}><option value="">${f.role === 'dentist' ? t('None — individual volunteer') : '—'}</option>
+        ${(s.ref?.institutions || []).filter(i => i.active).map(i => html`<option value=${i.id}>${i.name}${i.district ? ' — ' + i.district : ''}</option>`)}</select><//>`}
     ${f.role === 'dentist' && html`<div class="grid-2"><${Field} label=${t('Dental council')}><input type="text" value=${f.reg_council} onInput=${set('reg_council')} /><//>
       <${Field} label=${t('Registration number')}><input type="text" value=${f.reg_number} onInput=${set('reg_number')} /><//></div>
       <label class="choice"><input type="checkbox" checked=${f.reg_verified} onChange=${set('reg_verified')} /> ${t('I have checked this registration with the council')}</label>`}
@@ -202,6 +230,8 @@ const REF_DEFS = {
     ['address', 'Address'], ['timings', 'Timings'], ['phone', 'Phone'], ['cost_category', 'Cost (Free / Subsidised / Paid)'], ['accessibility', 'Accessibility (ramp, wheelchair)']], list: ['name', 'district', 'services'] },
   kb_items: { title: 'Knowledge base', fields: [['title', 'Title (English)'], ['title_ml', 'Title (Malayalam)'], ['kind', 'Kind', ['video', 'leaflet', 'pictogram', 'training']], ['url', 'Link (https://…)'],
     ['language', 'Language', ['en', 'ml', 'ta', 'kn', 'te', 'hi', 'mr']], ['audience', 'For', ['patient', 'caregiver', 'worker', 'dentist']], ['tags', 'Tags (comma separated)']], list: ['title', 'kind', 'audience'] },
+  institutions: { title: 'Institutions', fields: [['name', 'Name (e.g. Government Dental College, Kottayam)'], ['kind', 'Type', ['dental_college', 'hospital', 'clinic', 'organisation', 'other']],
+    ['state', 'State', STATES.filter(x => x !== 'Other')], ['district', 'District'], ['address', 'Address'], ['phone', 'Phone'], ['email', 'Email']], list: ['name', 'kind', 'district', 'state'] },
   glossary: { title: 'Glossary', fields: [['en', 'English term'], ['ml', 'Malayalam term'], ['notes', 'Notes']], list: ['en', 'ml'] },
   lsgds: { title: 'Local bodies (LSGDs)', fields: [['state', 'State'], ['district', 'District'], ['kind', 'Type', LSGD_TYPES.map(x => x.key)], ['name', 'Name'], ['name_ml', 'Name in Malayalam'], ['lgd_code', 'LGD code']], list: ['district', 'name', 'kind'] },
 };
@@ -212,7 +242,7 @@ function RefList({ table }) {
   const [rows, setRows] = useState(null);
   const [edit, setEdit] = useState(null);
   const [q, setQ] = useState('');
-  const key = { referral_centres: 'referral_centres', kb_items: 'kb_items', glossary: 'glossary', lsgds: 'lsgds' }[table];
+  const key = { referral_centres: 'referral_centres', kb_items: 'kb_items', glossary: 'glossary', lsgds: 'lsgds', institutions: 'institutions' }[table];
   const load = async () => { const ref = await loadRef(true); setRows(ref[key] || []); };
   useEffect(() => { load(); }, [table]);
   const save = async e => {
@@ -231,7 +261,7 @@ function RefList({ table }) {
     catch (e) { toast(e.message, true); }
   };
   if (!rows) return html`<${Loading} />`;
-  const canEdit = ADMINS.includes(s.user.role) || (s.user.role === 'clinical_admin' && (table === 'kb_items' || table === 'glossary'));
+  const canEdit = ADMINS.includes(s.user.role) || (s.user.role === 'clinical_admin' && ['kb_items', 'glossary', 'institutions'].includes(table));
   const shown = rows.filter(r => !q || JSON.stringify(r).toLowerCase().includes(q.toLowerCase()));
   return html`
     <div class="row between"><h1 style="margin:0">${t(def.title)}</h1>${canEdit && html`<button class="btn primary" onClick=${() => setEdit({})}>${t('Add')}</button>`}</div>
@@ -240,7 +270,8 @@ function RefList({ table }) {
       <button class="btn" onClick=${loadKerala}>${t('Load all Kerala local bodies (1,034)')}</button></div>
       <p class="tiny" style="margin-top:6px">${t('Kerala list: © OpenStreetMap contributors (ODbL), via the OSM Kerala community.')}</p></div>`}
     ${table === 'kb_items' && html`<p class="muted small">${t('Items must be approved by the clinical governance group before dentists share them.')}</p>`}
-    ${edit && html`<form class="panel stack" style="margin:12px 0" onSubmit=${save}>${def.fields.map(([k, label, opts]) => html`<${Field} label=${t(label)}>${opts
+    ${edit && html`<form class="panel stack" style="margin:12px 0" onSubmit=${save}>${def.fields.map(([k, label, opts]) => html`<${Field} label=${t(label)}>${
+      table === 'institutions' && k === 'district' ? html`<${DistrictInput} state=${edit.state} value=${edit.district || ''} onChange=${x => setEdit({ ...edit, district: x })} />` : opts
       ? html`<select value=${edit[k] || ''} onChange=${e => setEdit({ ...edit, [k]: e.target.value })}><option value="">—</option>${opts.map(o => html`<option value=${o}>${o}</option>`)}</select>`
       : html`<input type="text" value=${edit[k] || ''} onInput=${e => setEdit({ ...edit, [k]: e.target.value })} />`}<//>`)}
       <div class="btn-row"><button class="btn primary">${t('Save')}</button><button type="button" class="btn" onClick=${() => setEdit(null)}>${t('Cancel')}</button></div></form>`}
@@ -263,6 +294,7 @@ function Settings() {
   const num = (k, label, hint, off) => html`<${Field} label=${t(label)} hint=${hint && t(hint)}><input type="number" disabled=${off} value=${f[k]} onInput=${e => setF({ ...f, [k]: e.target.value })} /><//>`;
   return html`<h1>${t('Settings')}</h1><form class="panel stack" onSubmit=${save}>
     ${num('claim_minutes', 'Minutes a case stays reserved for a dentist')}
+    ${num('assign_hours', 'Hours a case assigned by an institution stays with that dentist')}
     ${num('sla_urgent_hours', 'Target hours for urgent cases')}
     ${num('sla_routine_hours', 'Target hours for routine cases')}
     ${num('audit_sample_percent', 'Percent of opinions sampled for clinical audit')}

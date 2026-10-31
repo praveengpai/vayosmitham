@@ -70,7 +70,8 @@ export function ReportView({ caseId }) {
       </dl>
       ${kb.length > 0 && html`<h2>Education material</h2><ul class="small">${kb.map(k => html`<li>${k.title} — ${k.url}</li>`)}</ul>`}
       <h2>Reviewing dentist</h2>
-      <p>${dentist?.name || '—'}, ${dentist?.reg_council || ''} registration no. ${dentist?.reg_number || '—'} — volunteer dentist, Association of Geriatric Dentistry</p>
+      <p>${dentist?.name || '—'}, ${dentist?.reg_council || ''} registration no. ${dentist?.reg_number || '—'} — ${dentist?.institution
+        ? html`<strong>${dentist.institution}</strong>, participating with the Association of Geriatric Dentistry` : 'volunteer dentist, Association of Geriatric Dentistry'}</p>
       <h2>For the treating clinic</h2>
       <div class="box" style="min-height:70px">Treatment given / remarks:</div>
       <footer class="report-foot">

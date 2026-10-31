@@ -76,6 +76,7 @@ function routeFor(user, route) {
     if (a === 'admin') return html`<${AdminArea} section=${b || 'kb_items'} id=${c} />`;
     return html`<${AuditQueue} />`;
   }
+  if (user.role === 'institution_admin') return html`<${AdminArea} section=${a === 'admin' ? (b || 'inst-queue') : 'inst-queue'} id=${c} />`;
   if (a === 'audit' && b) return html`<${AuditCase} id=${b} />`;
   if (a === 'audit') return html`<${AuditQueue} />`;
   return html`<${AdminArea} section=${a === 'admin' ? (b || 'dashboard') : 'dashboard'} id=${c} />`;

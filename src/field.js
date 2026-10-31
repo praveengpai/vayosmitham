@@ -1,5 +1,5 @@
 // Field-worker API: enrolment, consent, screening, photos, viewing opinions, referral outcomes.
-import { HttpError, json, body, personId, caseId, uid, str, int, oneOf, parseJSON, audit, addMonths, nowIso, selectIn } from './util.js';
+import { HttpError, json, body, personId, caseId, uid, str, int, oneOf, parseJSON, audit, addMonths, nowIso, selectIn, getSettings } from './util.js';
 import { requireRole } from './auth.js';
 import { putMedia, cleanJpeg } from './media.js';
 import { KNOWN_VERSIONS } from '../public/shared/consent.js';
@@ -164,9 +164,10 @@ export async function submitVisit(env, req, user) {
 
   await env.CLINICAL.batch([
     env.CLINICAL.prepare(
-      `INSERT INTO cases (id, client_uuid, person_id, worker_id, visit_type, status, urgency, red_flags, age_band, sex, district, lsgd_type, bedbound)
-       VALUES (?,?,?,?,?,'submitted',?,?,?,?,?,?,?)`).bind(cid, clientUuid, person.id, user.id, visitType, urgency, JSON.stringify(red_flags),
-      ageBand(person.birth_year), person.sex, person.district, person.lsgd_type, ctx.bedbound ? 1 : 0),
+      `INSERT INTO cases (id, client_uuid, person_id, worker_id, visit_type, status, urgency, red_flags, age_band, sex, state, district, lsgd_type, bedbound, worker_lang)
+       VALUES (?,?,?,?,?,'submitted',?,?,?,?,?,?,?,?,?)`).bind(cid, clientUuid, person.id, user.id, visitType, urgency, JSON.stringify(red_flags),
+      ageBand(person.birth_year), person.sex, person.state || null, person.district, person.lsgd_type, ctx.bedbound ? 1 : 0,
+      user.content_lang && user.content_lang !== 'en' ? user.content_lang : (user.ui_lang || 'en')),
     env.CLINICAL.prepare(
       `INSERT INTO screenings (case_id, ohat, ohat_total, gohai, gohai_total, natural_teeth, functional_dentition, denture_upper, denture_lower, denture_fit,
         complaints, complaint_text, complaint_lang, risks, context, medicines, medicine_flags, worker_notes, worker_notes_lang, extra, questionnaire_version)
@@ -350,7 +351,10 @@ export async function respondInfo(env, req, user, cid) {
   await env.CLINICAL.batch([
     env.CLINICAL.prepare("UPDATE info_requests SET response = ?, response_lang = ?, resolved_at = datetime('now') WHERE case_id = ? AND resolved_at IS NULL")
       .bind(response, detectLang(response, user.content_lang), cid),
-    env.CLINICAL.prepare("UPDATE cases SET status = 'submitted', claimed_by = NULL, claim_expires = NULL WHERE id = ?").bind(cid),
+    // An institution-assigned case goes straight back to the assigned dentist; otherwise it returns to the open queue.
+    env.CLINICAL.prepare(`UPDATE cases SET status = 'submitted',
+        claimed_by = assigned_to, claim_expires = CASE WHEN assigned_to IS NULL THEN NULL ELSE datetime('now', '+' || ? || ' hours') END WHERE id = ?`)
+      .bind(Number((await getSettings(env)).assign_hours || 48), cid),
   ]);
   await audit(env, user, 'case.info_response', 'case', cid);
   return json({ ok: true });
@@ -373,7 +377,7 @@ export async function reportData(env, req, user, cid) {
     person: { id: p.id, name: p.name, sex: p.sex, birth_year: p.birth_year, address: p.address, pincode: p.pincode, lsgd_name: p.lsgd_name, ward: p.ward, district: p.district, state: p.state },
     screening: s ? expandScreening(s) : null,
     opinion: publicOpinion(o),
-    dentist: d ? { name: d.name, reg_council: d.reg_council, reg_number: d.reg_number } : null,
+    dentist: d ? { name: d.name, reg_council: d.reg_council, reg_number: d.reg_number, institution: o.institution_name || null } : null,
     kb, generated_at: nowIso(),
   });
 }

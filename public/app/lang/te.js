@@ -646,7 +646,12 @@ export default {
   "Questionnaire": "ప్రశ్నావళి",
   "Demo site — all people and data are fictional. It resets every night.": "డెమో సైట్ — అందరు వ్యక్తులు, వివరాలు కల్పితం. ప్రతి రాత్రి మళ్ళీ మొదటికి వస్తుంది.",
   "Tap an account to sign in. PIN for all demo accounts": "సైన్ ఇన్ చేయడానికి ఒక ఖాతాను తాకండి. అన్ని డెమో ఖాతాల PIN",
-  "DEMO — fictional data for practice. Resets every night.": "డెమో — సాధన కోసం కల్పిత వివరాలు. ప్రతి రాత్రి మళ్ళీ మొదటికి వస్తుంది."
+  "DEMO — fictional data for practice. Resets every night.": "డెమో — సాధన కోసం కల్పిత వివరాలు. ప్రతి రాత్రి మళ్ళీ మొదటికి వస్తుంది.",
+  "Reviewed by a dentist from": "పరిశీలించిన దంత వైద్యుల సంస్థ:",
+  "Institution coordinator": "సంస్థ సమన్వయకర్త",
+  "Assigned to you": "మీకు కేటాయించబడింది",
+  "All states": "అన్ని రాష్ట్రాలు",
+  "Choose a state first": "ముందుగా రాష్ట్రాన్ని ఎంచుకోండి"
  },
  "clinical": {
   "Lips": "పెదవులు",

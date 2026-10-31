@@ -1,9 +1,9 @@
 // Dentist screens: the queue of unseen cases, the review workspace, and the dentist's own past opinions.
 // The dentist never receives a name, phone number or address — only age band, sex and district.
-import { html, answerLines, useState, useEffect, state, useAppState, setState, go, t, L, toast, useLoad, Loading, Field, Choices, Switch, TranslatedText, Thumbs, ago, fmtDate,
+import { html, answerLines, adviceIn, uiLang, useState, useEffect, state, useAppState, setState, go, t, L, toast, useLoad, Loading, Field, Choices, Switch, TranslatedText, Thumbs, ago, fmtDate,
   UrgencyChip, loadRef } from './ui.js';
 import { api } from './api.js';
-import { OHAT_ITEMS, GOHAI_OPTIONS, COMPLAINTS, RED_FLAGS, PHOTO_VIEWS, REFERRAL_TYPES, MEDICINE_FLAGS } from '/shared/clinical.js';
+import { OHAT_ITEMS, GOHAI_OPTIONS, COMPLAINTS, RED_FLAGS, PHOTO_VIEWS, REFERRAL_TYPES, MEDICINE_FLAGS, LANGUAGES, detectLang } from '/shared/clinical.js';
 
 const sexLabel = s => ({ F: t('Female'), M: t('Male'), O: t('Other') }[s] || s);
 
@@ -25,8 +25,9 @@ export function DentistQueue() {
     ${cases.length === 0 ? html`<div class="panel empty">${t('No cases are waiting. Thank you.')}</div>` : html`<div class="table-wrap"><table class="t">
       <thead><tr><th></th><th>${t('Person')}</th><th>${t('Complaints')}</th><th class="num">OHAT</th><th class="num">${t('Photos')}</th><th>${t('Waiting')}</th><th></th></tr></thead>
       <tbody>${cases.map(c => html`<tr>
-        <td><${UrgencyChip} u=${c.urgency} />${c.mine ? html` <span class="chip gold">${t('Yours')}</span>` : ''}</td>
-        <td>${sexLabel(c.sex)}, ${c.age_band}<br /><span class="tiny">${c.district}${c.bedbound ? ' · ' + t('bedbound') : ''}${c.previous_visits ? ` · ${c.previous_visits} ${t('earlier visit(s)')}` : ''}</span></td>
+        <td><${UrgencyChip} u=${c.urgency} />${c.assigned ? html` <span class="chip gold" title=${c.institution_name || ''}>${t('Assigned to you')}</span>`
+          : c.mine ? html` <span class="chip gold">${t('Yours')}</span>` : ''}${c.assigned && c.institution_name ? html`<br /><span class="tiny">${c.institution_name}</span>` : ''}</td>
+        <td>${sexLabel(c.sex)}, ${c.age_band}<br /><span class="tiny">${c.district}${c.state ? ', ' + c.state : ''}${c.bedbound ? ' · ' + t('bedbound') : ''}${c.previous_visits ? ` · ${c.previous_visits} ${t('earlier visit(s)')}` : ''}</span></td>
         <td class="small">${c.red_flags.map(k => html`<strong style="color:var(--red)">${L(RED_FLAGS.find(r => r.key === k))}</strong><br />`)}
           ${c.complaints.map(k => L(COMPLAINTS.find(x => x.key === k))).join(', ')}</td>
         <td class="num">${c.ohat_total ?? '—'}</td><td class="num">${c.photo_count}</td>
@@ -79,7 +80,8 @@ export function DentistCase({ id }) {
     <div class="workspace">
       <div class="stack">
         ${c.red_flags.length > 0 && html`<div class="callout urgent"><h3>${t('Warning signs reported')}</h3><ul style="margin:0;padding-left:20px">
-          ${c.red_flags.map(k => html`<li>${L(RED_FLAGS.find(r => r.key === k))}</li>`)}</ul></div>`}
+          ${c.red_flags.map(k => { const r = RED_FLAGS.find(x => x.key === k); return html`<li>${L(r)}
+            <div class="tiny" style="margin-top:2px">${t('Advice the field worker was shown at once (fixed text approved by AGeD, not AI)')}: ${adviceIn(uiLang(), r)}</div></li>`; })}</ul></div>`}
         <div class="panel stack">
           <h2>${t('Complaint')}</h2>
           <p>${sc.complaints.map(k => L(COMPLAINTS.find(x => x.key === k))).join(' · ') || '—'}</p>
@@ -113,8 +115,8 @@ export function DentistCase({ id }) {
             <td class="num">${h.natural_teeth ?? '—'}</td><td class="small">${h.impression || '—'}</td></tr>`)}</tbody></table></div></div>`}
       </div>
       <div class="opinion-col">
-        ${c.holds ? html`<${OpinionForm} caseId=${id} onDone=${() => go('/')} />`
-          : current ? html`<${SignedOpinion} o=${current} caseId=${id} onChanged=${d.reload} />`
+        ${c.holds ? html`<${OpinionForm} caseId=${id} workerLang=${c.worker_lang} onDone=${() => go('/')} />`
+          : current ? html`<${SignedOpinion} o=${current} caseId=${id} workerLang=${c.worker_lang} onChanged=${d.reload} />`
           : html`<div class="callout info">${t('This case is no longer reserved for you.')} <button class="btn" onClick=${reclaim}>${t('Open again')}</button></div>`}
       </div>
     </div>`;
@@ -127,7 +129,47 @@ function referralTemplate(type, urgency) {
   return `Dear Doctor,\nThis older person was screened at home under the Vayosmitham community geriatric oral health programme (CIF–AGeD). Based on the screening findings and intraoral photographs, referral is advised for: ${r?.en || ''}, ${when}.\nPlease see the screening summary on this report. We would be grateful if you could note the treatment given on this sheet, so the field worker can record the outcome.\nThank you.`;
 }
 
-function OpinionForm({ caseId, onDone, initial, correcting }) {
+// What the field worker (and the older person) will see. The opinion is machine-translated into the worker's language;
+// the dentist previews that translation and an English back-translation to check that the meaning survived.
+// Translations are cached, so the worker later receives exactly the text previewed here.
+const PREVIEW_PARTS = [['impression', 'What the dentist sees'], ['advice', 'Advice'], ['care_plan', 'Care plan']];
+function WorkerPreview({ f, lang }) {
+  const [res, setRes] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const target = lang || 'ml';
+  const langName = LANGUAGES.find(l => l.code === target)?.native || target;
+  const parts = PREVIEW_PARTS.filter(([k]) => (f[k] || '').trim());
+  const key = JSON.stringify(parts.map(([k]) => f[k]));
+  const run = async () => {
+    setBusy(true);
+    try {
+      const out = {};
+      for (const [k] of parts) {
+        const text = f[k].trim(), src = detectLang(text);
+        if (src === target) { out[k] = { shown: text, back: null, same: true }; continue; }
+        const tx = await api('/api/translate', { method: 'POST', body: { text, src, tgt: target } });
+        const back = target === 'en' ? null : await api('/api/translate', { method: 'POST', body: { text: tx.text, src: target, tgt: 'en' } });
+        out[k] = { shown: tx.text, back: back?.text || null, engine: tx.engine };
+      }
+      setRes({ key, out });
+    } catch (e) { toast(e.message, true); }
+    setBusy(false);
+  };
+  if (!parts.length) return '';
+  const stale = res && res.key !== key;
+  return html`<div class="panel stack" style="background:var(--bg-soft, #f4f8f7)">
+    <div class="row between"><strong>${t('What the field worker will see')} (${langName})</strong>
+      <button type="button" class="btn" disabled=${busy} onClick=${run}>${busy ? t('Translating…') : res ? t('Preview again') : t('Preview translation')}</button></div>
+    <p class="tiny muted" style="margin:0">${t('Your opinion is shown to the field worker and the older person as a machine translation (AI). It is labelled as such, and your original stays the authoritative version. Read the English back-translation: if the meaning has changed, reword in simple language and preview again.')}</p>
+    ${stale && html`<p class="tiny" style="color:var(--red);margin:0">${t('You changed the text after the preview — preview again before signing.')}</p>`}
+    ${res && html`<div class="table-wrap"><table class="t"><thead><tr><th></th><th>${t('Worker and older person see')}</th><th>${t('Back in English (to check the meaning)')}</th></tr></thead>
+      <tbody>${PREVIEW_PARTS.filter(([k]) => res.out[k]).map(([k, label]) => html`<tr><td class="small"><strong>${t(label)}</strong></td>
+        <td lang=${target}>${res.out[k].shown}${res.out[k].same ? html`<div class="tiny muted">${t('Already in this language — shown as written')}</div>` : ''}</td>
+        <td class="small">${res.out[k].back || '—'}</td></tr>`)}</tbody></table></div>`}
+  </div>`;
+}
+
+function OpinionForm({ caseId, onDone, initial, correcting, workerLang }) {
   const s = useAppState();
   const kb = (s.ref?.kb_items || []).filter(k => k.audience === 'patient' || k.audience === 'caregiver');
   const [f, setF] = useState(initial || { findings: '', impression: '', advice: '', care_plan: '', note: '', followup_months: 6, referral_needed: false, referral_type: '',
@@ -182,6 +224,7 @@ function OpinionForm({ caseId, onDone, initial, correcting }) {
       <input type="checkbox" checked=${f.kb_items.includes(k.id)} onChange=${e => set('kb_items', e.target.checked ? [...f.kb_items, k.id] : f.kb_items.filter(x => x !== k.id))} />
       <span><span class="t">${k.title}</span><span class="d">${k.kind} · ${k.language}${k.approved_at ? '' : ' · ' + t('not yet approved')}</span></span></label>`)}</div><//>`}
     ${correcting && html`<${Field} label=${t('Reason for correction')}><input type="text" value=${reason} onInput=${e => setReason(e.target.value)} /><//>`}
+    <${WorkerPreview} f=${f} lang=${workerLang} />
     <button class="btn primary big" disabled=${busy} onClick=${sign}>${busy ? t('Signing…') : t('Sign opinion')}</button>
     <p class="tiny">${t('Your name and registration number appear on the printed referral report only, not in the app screens.')}</p>
     ${!correcting && html`<details open=${asking} onToggle=${e => setAsking(e.target.open)}><summary>${t('Need more information first?')}</summary>
@@ -190,9 +233,9 @@ function OpinionForm({ caseId, onDone, initial, correcting }) {
   </div>`;
 }
 
-function SignedOpinion({ o, caseId, onChanged }) {
+function SignedOpinion({ o, caseId, onChanged, workerLang }) {
   const [edit, setEdit] = useState(false);
-  if (edit) return html`<${OpinionForm} caseId=${caseId} correcting=${o.id} initial=${{ ...o, referral_needed: !!o.referral_needed, cannot_assess: !!o.cannot_assess, kb_items: o.kb_items || [],
+  if (edit) return html`<${OpinionForm} caseId=${caseId} workerLang=${workerLang} correcting=${o.id} initial=${{ ...o, referral_needed: !!o.referral_needed, cannot_assess: !!o.cannot_assess, kb_items: o.kb_items || [],
     findings: o.findings || '', impression: o.impression || '', advice: o.advice || '', care_plan: o.care_plan || '', note: o.note || '', referral_type: o.referral_type || '',
     referral_message: o.referral_message || '', referral_urgency: o.referral_urgency || 'within_30d' }} onDone=${() => { setEdit(false); onChanged(); }} />`;
   return html`<div class="panel stack"><h2>${t('Signed opinion')} <span class="muted small">v${o.version} · ${fmtDate(o.signed_at)}</span></h2>

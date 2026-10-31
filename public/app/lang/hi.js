@@ -646,7 +646,12 @@ export default {
   "Questionnaire": "प्रश्नावली",
   "Demo site — all people and data are fictional. It resets every night.": "डेमो साइट — सभी लोग और जानकारी काल्पनिक हैं। यह हर रात फिर से शुरू होती है।",
   "Tap an account to sign in. PIN for all demo accounts": "साइन इन करने के लिए किसी खाते को छुएँ। सभी डेमो खातों का PIN",
-  "DEMO — fictional data for practice. Resets every night.": "डेमो — अभ्यास के लिए काल्पनिक जानकारी। हर रात फिर से शुरू होती है।"
+  "DEMO — fictional data for practice. Resets every night.": "डेमो — अभ्यास के लिए काल्पनिक जानकारी। हर रात फिर से शुरू होती है।",
+  "Reviewed by a dentist from": "समीक्षा करने वाले डेंटिस्ट का संस्थान:",
+  "Institution coordinator": "संस्थान कोऑर्डिनेटर",
+  "Assigned to you": "आपको सौंपा गया",
+  "All states": "सभी राज्य",
+  "Choose a state first": "पहले राज्य चुनें"
  },
  "clinical": {
   "Lips": "होंठ",

@@ -49,11 +49,20 @@ export const STAFF = [
   { id: 'U-demo-w-pune', role: 'worker', name: 'Demo Worker Sunita (Pune)', phone: '9000100017', state: 'Maharashtra', district: 'Pune', lsgd_type: 'grama_panchayat', lsgd_name: 'Khed', ward: '2', content_lang: 'mr', ui_lang: 'mr' },
   { id: 'U-demo-d1', role: 'dentist', name: 'Dr Demo Anitha (Prosthodontist)', phone: '9000100021', organisation: AGED, reg_council: 'Kerala State Dental Council', reg_number: 'DEMO-KSDC-101' },
   { id: 'U-demo-d2', role: 'dentist', name: 'Dr Demo Ravi (Oral Medicine)', phone: '9000100022', organisation: AGED, reg_council: 'Tamil Nadu State Dental Council', reg_number: 'DEMO-TNSDC-202' },
+  { id: 'U-demo-inst', role: 'institution_admin', name: 'Demo Coordinator, Govt Dental College Ernakulam', phone: '9000100005', institution_id: 'IN-demo-gdc', organisation: 'Demo Government Dental College, Ernakulam' },
+  { id: 'U-demo-d4', role: 'dentist', name: 'Dr Demo Meera (Dental College)', phone: '9000100024', institution_id: 'IN-demo-gdc', organisation: 'Demo Government Dental College, Ernakulam', reg_council: 'Kerala State Dental Council', reg_number: 'DEMO-KSDC-104' },
   { id: 'U-demo-d3', role: 'dentist', name: 'Dr Demo Farah (Public Health Dentistry)', phone: '9000100023', organisation: AGED, reg_council: 'Maharashtra State Dental Council', reg_number: 'DEMO-MSDC-303' },
   { id: 'U-demo-audit', role: 'auditor', name: 'Dr Demo Auditor', phone: '9000100031', organisation: AGED },
   { id: 'U-demo-dpo', role: 'dpo', name: 'Demo Data Protection Lead', phone: '9000100032', organisation: CIF },
   { id: 'U-demo-research', role: 'researcher', name: 'Demo Researcher', phone: '9000100033', organisation: 'Demo University' },
 ];
+// Institutions: Dr Anitha and Dr Meera belong to the dental college, Dr Ravi to a hospital; Dr Farah is an individual volunteer.
+const INSTITUTIONS = [
+  { id: 'IN-demo-gdc', name: 'Demo Government Dental College, Ernakulam', kind: 'dental_college', state: 'Kerala', district: 'Ernakulam' },
+  { id: 'IN-demo-cbe', name: 'Demo Dental Hospital, Coimbatore', kind: 'hospital', state: 'Tamil Nadu', district: 'Coimbatore' },
+];
+const INST_OF = { 'U-demo-d1': 'IN-demo-gdc', 'U-demo-d4': 'IN-demo-gdc', 'U-demo-d2': 'IN-demo-cbe' };
+for (const s of STAFF) if (INST_OF[s.id]) { s.institution_id = INST_OF[s.id]; s.organisation = INSTITUTIONS.find(i => i.id === INST_OF[s.id]).name; }
 const WORKERS = STAFF.filter(s => s.role === 'worker');
 const DENTISTS = STAFF.filter(s => s.role === 'dentist');
 const SHARE = { 'U-demo-w-ekm': 110, 'U-demo-w-tsr': 90, 'U-demo-w-cbe': 70, 'U-demo-w-mys': 60, 'U-demo-w-hyd': 55, 'U-demo-w-vsp': 55, 'U-demo-w-pune': 60 };
@@ -157,16 +166,17 @@ idSql.push('-- DEMO identity data (fictional). Regenerate with: node scripts/dem
   'DELETE FROM sessions;', 'DELETE FROM consents;', 'DELETE FROM persons;', 'DELETE FROM users;');
 const { hash, salt } = await pinHash(DEMO_PIN);
 for (const s of STAFF) {
-  idSql.push(`INSERT INTO users (id, role, name, phone, pin_hash, pin_salt, must_change, organisation, state, district, lsgd_type, lsgd_name, ward, reg_council, reg_number, reg_verified_at, ui_lang, content_lang, trained_at) VALUES (${[
+  idSql.push(`INSERT INTO users (id, role, name, phone, pin_hash, pin_salt, must_change, organisation, state, district, lsgd_type, lsgd_name, ward, reg_council, reg_number, reg_verified_at, ui_lang, content_lang, trained_at, institution_id) VALUES (${[
     s.id, s.role, s.name, s.phone, hash, salt, 0, s.organisation, s.state, s.district, s.lsgd_type, s.lsgd_name, s.ward, s.reg_council, s.reg_number,
-    s.reg_number ? '2026-09-01' : null, s.ui_lang || 'en', s.content_lang || 'en', s.role === 'worker' ? '2026-09-15' : null].map(q).join(', ')});`);
+    s.reg_number ? '2026-09-01' : null, s.ui_lang || 'en', s.content_lang || 'en', s.role === 'worker' ? '2026-09-15' : null, s.institution_id || null].map(q).join(', ')});`);
 }
 
 clSql.push('-- DEMO clinical data (fictional). Regenerate with: node scripts/demo-seed.mjs',
-  ...['audits', 'referrals', 'opinions', 'info_requests', 'images', 'followups', 'screenings', 'cases', 'questionnaires', 'audit_log', 'referral_centres', 'kb_items', 'translations'].map(t => `DELETE FROM ${t};`));
+  ...['audits', 'referrals', 'opinions', 'info_requests', 'images', 'followups', 'screenings', 'cases', 'questionnaires', 'audit_log', 'referral_centres', 'kb_items', 'translations', 'institutions'].map(t => `DELETE FROM ${t};`));
+for (const i of INSTITUTIONS) clSql.push(`INSERT INTO institutions (id, name, kind, state, district, address, phone) VALUES (${[i.id, i.name, i.kind, i.state, i.district, 'Demo address', '0000 000 000 (demo)'].map(q).join(', ')});`);
 clSql.push(`INSERT OR REPLACE INTO settings (key, value) VALUES ('org_legal_name', ${q(CIF)}), ('org_address', '1st Floor, Krishna Bhat Towers, Pullepady, Ernakulam, Kerala, India'),
   ('grievance_name', 'Dr. Praveen G Pai'), ('grievance_phone', '+91-8129060055'), ('grievance_email', 'praveengpai@gmail.com'), ('retention_years', '5'), ('grievance_days', '30'),
-  ('claim_minutes', '30'), ('sla_urgent_hours', '24'), ('sla_routine_hours', '72'), ('audit_sample_percent', '10'), ('small_cell_threshold', '5');`);
+  ('claim_minutes', '30'), ('assign_hours', '48'), ('sla_urgent_hours', '24'), ('sla_routine_hours', '72'), ('audit_sample_percent', '10'), ('small_cell_threshold', '5');`);
 const CENTRES = [
   ['RC-demo-1', 'Government Dental College (demo listing), Ernakulam', 'Dental college', 'All dental treatment, dentures, oral medicine, biopsy', 'Ernakulam', 'Mon–Sat 8am–1pm', 'Free'],
   ['RC-demo-2', 'District Hospital Dental Unit (demo listing), Thrissur', 'District hospital', 'Extraction, filling, scaling, dentures', 'Thrissur', 'Mon–Sat 9am–4pm', 'Free'],
@@ -251,12 +261,16 @@ function addCase(p, worker, minsAgo, visitType, scenario, opts = {}) {
   const ageBand = (() => { const a = 2026 - p.birth_year; if (a >= 90) return '90+'; const lo = Math.floor(a / 5) * 5; return `${lo}-${lo + 4}`; })();
   let status = opts.status || 'opinion';
   const dentist = pick(DENTISTS);
+  const inst = INSTITUTIONS.find(i => i.id === dentist.institution_id) || null;
+  const assigned = inst && chance(0.6); // most dental-college cases were assigned by the college coordinator
   const responseMins = urgency === 'urgent' ? int(60, 20 * 60) : int(4 * 60, 70 * 60);
   const opinionMins = Math.max(0, minsAgo - responseMins);
   if (status === 'opinion' && opinionMins <= 0) status = 'submitted';
   const sampled = status === 'opinion' && chance(0.1) ? 1 : 0;
-  clSql.push(`INSERT INTO cases (id, person_id, worker_id, visit_type, status, urgency, red_flags, age_band, sex, district, lsgd_type, bedbound, created_at, submitted_at, opinion_at, sampled_for_audit, escalated_at) VALUES (${[
-    id, p.id, worker.id, visitType, status, urgency, JSON.stringify(redFlags), ageBand, p.sex, p.district, p.lsgd_type, scenario === 'bedbound' ? 1 : 0].map(q).join(', ')}, ${ago(minsAgo)}, ${ago(minsAgo)}, ${status === 'opinion' ? ago(opinionMins) : 'NULL'}, ${sampled}, ${status === 'submitted' && minsAgo > (urgency === 'urgent' ? 24 : 72) * 60 ? ago(minsAgo - 72 * 60) : 'NULL'});`);
+  const doneByInst = status === 'opinion' && assigned;
+  clSql.push(`INSERT INTO cases (id, person_id, worker_id, visit_type, status, urgency, red_flags, age_band, sex, state, district, lsgd_type, bedbound, worker_lang, institution_id, assigned_to, assigned_by, created_at, submitted_at, opinion_at, sampled_for_audit, escalated_at, assigned_at) VALUES (${[
+    id, p.id, worker.id, visitType, status, urgency, JSON.stringify(redFlags), ageBand, p.sex, p.state, p.district, p.lsgd_type, scenario === 'bedbound' ? 1 : 0, STATES_LANG[p.state] || 'en',
+    doneByInst ? inst.id : null, doneByInst ? dentist.id : null, doneByInst ? 'U-demo-inst' : null].map(q).join(', ')}, ${ago(minsAgo)}, ${ago(minsAgo)}, ${status === 'opinion' ? ago(opinionMins) : 'NULL'}, ${sampled}, ${status === 'submitted' && minsAgo > (urgency === 'urgent' ? 24 : 72) * 60 ? ago(minsAgo - 72 * 60) : 'NULL'}, ${doneByInst ? ago(minsAgo - 60) : 'NULL'});`);
   clSql.push(`INSERT INTO screenings (case_id, ohat, ohat_total, gohai, gohai_total, natural_teeth, functional_dentition, denture_upper, denture_lower, denture_fit, complaints, complaint_text, complaint_lang, risks, context, medicines, medicine_flags, worker_notes, worker_notes_lang, extra, questionnaire_version) VALUES (${[
     id, JSON.stringify(s.ohat), s.ohatTotal, chance(0.92) ? JSON.stringify(s.gohai) : null, null, s.teeth, s.teeth >= 20 ? 1 : 0, s.denture_upper, s.denture_lower, s.denture_fit,
     JSON.stringify(s.complaints), s.ct, s.ct ? s.lang : null, JSON.stringify(s.risks), JSON.stringify(s.context), JSON.stringify(s.meds), JSON.stringify(s.flags),
@@ -280,9 +294,10 @@ function addCase(p, worker, minsAgo, visitType, scenario, opts = {}) {
   const kb = scenario === 'denture' ? ['KB-demo-2'] : scenario === 'bedbound' ? ['KB-demo-3'] : [];
   const verify = code(8);
   const oid = `OP-${id}`;
-  clSql.push(`INSERT INTO opinions (id, case_id, version, dentist_id, findings, impression, advice, care_plan, text_lang, followup_months, referral_needed, referral_type, referral_urgency, referral_message, kb_items, verify_code, signed_at) VALUES (${[
+  clSql.push(`INSERT INTO opinions (id, case_id, version, dentist_id, findings, impression, advice, care_plan, text_lang, followup_months, referral_needed, referral_type, referral_urgency, referral_message, kb_items, verify_code, institution_id, institution_name, signed_at) VALUES (${[
     oid, id, 1, dentist.id, `OHAT ${s.ohatTotal}/16. ${s.teeth} natural teeth.`, t.impression, t.advice, t.care_plan, inMl ? 'ml' : 'en', o.months, ref ? 1 : 0, o.referral || null,
-    ref ? (o.urgency || 'within_30d') : null, ref ? 'Please examine and treat as needed. Screening by the Vayosmitham programme.' : null, JSON.stringify(kb), verify].map(q).join(', ')}, ${ago(opinionMins)});`);
+    ref ? (o.urgency || 'within_30d') : null, ref ? 'Please examine and treat as needed. Screening by the Vayosmitham programme.' : null, JSON.stringify(kb), verify,
+    inst?.id || null, inst?.name || null].map(q).join(', ')}, ${ago(opinionMins)});`);
   stats.opinions++;
   if (sampled && chance(0.6)) clSql.push(`INSERT INTO audits (id, opinion_id, auditor_id, rating, safe, notes, created_at) VALUES ('AU-${id}', '${oid}', 'U-demo-audit', ${int(3, 5)}, 1, 'Appropriate advice and referral.', ${ago(Math.max(0, opinionMins - 2 * DAY))});`);
   if (ref) {
@@ -374,9 +389,12 @@ export function flatten(sql) {
   return out.join('\n') + '\n';
 }
 const mig = (db, files) => flatten(files.map(f => readFileSync(new URL(`../migrations/${db}/${f}`, import.meta.url), 'utf8')).join('\n;\n'));
-writeFileSync(new URL('schema-identity.sql', OUT), mig('identity', ['0001_init.sql', '0002_consent_v2.sql', '0003_pincode.sql', '0004_admin_roles.sql']));
-writeFileSync(new URL('schema-clinical.sql', OUT), mig('clinical', ['0001_init.sql', '0003_notice_settings.sql', '0004_questionnaire.sql']));
+writeFileSync(new URL('schema-identity.sql', OUT), mig('identity', ['0001_init.sql', '0002_consent_v2.sql', '0003_pincode.sql', '0004_admin_roles.sql', '0005_institutions.sql']));
+writeFileSync(new URL('schema-clinical.sql', OUT), mig('clinical', ['0001_init.sql', '0003_notice_settings.sql', '0004_questionnaire.sql', '0005_institutions.sql']));
 writeFileSync(new URL('schema-media.sql', OUT), mig('media', ['0001_init.sql']));
+// Upgrades for a demo database created before a migration existed (applied by src/demo.js, one transaction each).
+writeFileSync(new URL('upgrade-identity-0005.sql', OUT), mig('identity', ['0005_institutions.sql']));
+writeFileSync(new URL('upgrade-clinical-0005.sql', OUT), mig('clinical', ['0005_institutions.sql']));
 writeFileSync(new URL('identity.sql', OUT), flatten(idSql.join('\n')));
 writeFileSync(new URL('clinical.sql', OUT), flatten(clSql.join('\n')));
 writeFileSync(new URL('lsgds.sql', OUT), flatten(lsgdSql.join('\n')));

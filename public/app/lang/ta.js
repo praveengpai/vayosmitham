@@ -646,7 +646,12 @@ export default {
   "Questionnaire": "கேள்வித்தாள்",
   "Demo site — all people and data are fictional. It resets every night.": "டெமோ தளம் — எல்லா நபர்களும் தகவல்களும் கற்பனையானவை. ஒவ்வொரு இரவும் மீட்டமைக்கப்படும்.",
   "Tap an account to sign in. PIN for all demo accounts": "உள்நுழைய ஒரு கணக்கைத் தொடுங்கள். எல்லா டெமோ கணக்குகளுக்கும் PIN",
-  "DEMO — fictional data for practice. Resets every night.": "டெமோ — பயிற்சிக்கான கற்பனைத் தகவல்கள். ஒவ்வொரு இரவும் மீட்டமைக்கப்படும்."
+  "DEMO — fictional data for practice. Resets every night.": "டெமோ — பயிற்சிக்கான கற்பனைத் தகவல்கள். ஒவ்வொரு இரவும் மீட்டமைக்கப்படும்.",
+  "Reviewed by a dentist from": "மதிப்பாய்வு செய்த பல் மருத்துவரின் நிறுவனம்:",
+  "Institution coordinator": "நிறுவன ஒருங்கிணைப்பாளர்",
+  "Assigned to you": "உங்களுக்கு ஒதுக்கப்பட்டது",
+  "All states": "எல்லா மாநிலங்களும்",
+  "Choose a state first": "முதலில் மாநிலத்தைத் தேர்ந்தெடுக்கவும்"
  },
  "clinical": {
   "Lips": "உதடுகள்",

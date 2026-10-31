@@ -66,7 +66,7 @@ export async function loadRef(force = false) {
 }
 
 export function roleName(r) {
-  return { superadmin: 'CIF super admin', admin: 'Administrator', clinical_admin: 'AGeD clinical admin', worker: 'Field worker', coordinator: 'Coordinator', dentist: 'Dentist',
+  return { superadmin: 'CIF super admin', admin: 'Administrator', clinical_admin: 'AGeD clinical admin', institution_admin: 'Institution coordinator', worker: 'Field worker', coordinator: 'Coordinator', dentist: 'Dentist',
     auditor: 'Clinical auditor', dpo: 'Data protection lead', researcher: 'Researcher' }[r] || r;
 }
 
@@ -235,7 +235,7 @@ export function DistrictInput({ state: st, value, onChange, disabled }) {
   if (!list || free) return html`<span class="row" style="flex-wrap:nowrap"><input type="text" value=${value || ''} disabled=${disabled} onInput=${e => onChange(e.target.value)} />
     ${list && !disabled ? html`<button type="button" class="btn link" onClick=${() => { setFree(false); onChange(''); }}>${t('List')}</button>` : ''}</span>`;
   return html`<select value=${value || ''} disabled=${disabled} onChange=${e => { if (e.target.value === '__other') { setFree(true); onChange(''); } else onChange(e.target.value); }}>
-    <option value="">—</option>${list.map(x => html`<option>${x}</option>`)}<option value="__other">${t('Other')}…</option></select>`;
+    <option value="">—</option>${list.map(x => html`<option value=${x}>${x}</option>`)}<option value="__other">${t('Other')}…</option></select>`;
 }
 
 import { QUESTIONS, HABIT_OPTIONS } from '/shared/clinical.js';

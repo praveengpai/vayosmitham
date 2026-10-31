@@ -8,6 +8,7 @@ import * as field from './field.js';
 import * as dentist from './dentist.js';
 import * as admin from './admin.js';
 import * as qn from './questionnaire.js';
+import * as inst from './institution.js';
 
 const SECURITY_HEADERS = {
   'x-content-type-options': 'nosniff',
@@ -54,6 +55,12 @@ const ROUTES = [
   ['POST', '/api/dentist/cases/:id/opinion', dentist.saveOpinion],
   ['POST', '/api/dentist/cases/:id/info-request', dentist.requestInfo],
   ['POST', '/api/dentist/opinions/:id/correct', dentist.correctOpinion],
+
+  // institutions (dental colleges, hospitals, clinics)
+  ['GET', '/api/institution/queue', inst.queue],
+  ['POST', '/api/institution/cases/:id/assign', inst.assign],
+  ['POST', '/api/institution/cases/:id/unassign', inst.unassign],
+  ['GET', '/api/institution/report', inst.report],
 
   // clinical audit
   ['GET', '/api/audit/queue', admin.auditQueue],
@@ -182,15 +189,16 @@ async function savePrefs(env, req, user) {
 
 async function reference(env, req, user) {
   if (!user) throw new HttpError(401, 'Please sign in');
-  const [lsgds, centres, kb, settings, glossary] = await Promise.all([
+  const [lsgds, centres, kb, settings, glossary, institutions] = await Promise.all([
     env.CLINICAL.prepare('SELECT id, state, district, kind, name, name_ml FROM lsgds ORDER BY district, name').all(),
     env.CLINICAL.prepare('SELECT * FROM referral_centres WHERE active = 1 ORDER BY district, name').all(),
     env.CLINICAL.prepare('SELECT * FROM kb_items WHERE active = 1 ORDER BY kind, title').all(),
     env.CLINICAL.prepare("SELECT key, value FROM settings WHERE key <> 'research_salt'").all(),
     env.CLINICAL.prepare('SELECT * FROM glossary ORDER BY en').all(),
+    env.CLINICAL.prepare('SELECT * FROM institutions ORDER BY state, name').all().catch(() => ({ results: [] })),
   ]);
   return json({
-    lsgds: lsgds.results, referral_centres: centres.results, kb_items: kb.results, glossary: glossary.results,
+    lsgds: lsgds.results, referral_centres: centres.results, kb_items: kb.results, glossary: glossary.results, institutions: institutions.results,
     settings: Object.fromEntries(settings.results.map(r => [r.key, r.value])), media_backend: env.MEDIA_BUCKET ? 'r2' : 'd1',
     questionnaire: await qn.syncQuestionnaire(env), environment: env.ENVIRONMENT || 'pilot',
   });
@@ -247,7 +255,7 @@ async function media(env, req, user, id) {
 // Public verification page for the QR code on printed reports. Shows no patient information.
 async function verifyPage(env, code) {
   code = String(code || '').replace(/[^A-Z0-9]/gi, '').toUpperCase().slice(0, 12);
-  const o = code ? await env.CLINICAL.prepare('SELECT o.case_id, o.version, o.signed_at, o.superseded_by, o.dentist_id, o.referral_needed, o.referral_type FROM opinions o WHERE o.verify_code = ?').bind(code).first() : null;
+  const o = code ? await env.CLINICAL.prepare('SELECT o.case_id, o.version, o.signed_at, o.superseded_by, o.dentist_id, o.referral_needed, o.referral_type, o.institution_name FROM opinions o WHERE o.verify_code = ?').bind(code).first() : null;
   let d = null;
   if (o) d = await env.IDENTITY.prepare('SELECT name, reg_council, reg_number FROM users WHERE id = ?').bind(o.dentist_id).first();
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -262,6 +270,7 @@ dl{display:grid;grid-template-columns:auto 1fr;gap:8px 16px}dt{color:#667085}dd{
 <h1>Vayosmitham report check</h1><p><span class="badge">${status[0]}</span></p><p>${status[1]}</p>
 ${o ? `<dl><dt>Case number</dt><dd>${esc(o.case_id)} (version ${o.version})</dd><dt>Issued</dt><dd>${esc(o.signed_at)} UTC</dd>
 <dt>Reviewing dentist</dt><dd>${esc(d?.name)}</dd><dt>Registration</dt><dd>${esc(d?.reg_council)} ${esc(d?.reg_number)}</dd>
+${o.institution_name ? `<dt>Institution</dt><dd>${esc(o.institution_name)}</dd>` : ''}
 <dt>Referral advised</dt><dd>${o.referral_needed ? 'Yes' : 'No'}</dd></dl>` : ''}
 <p style="color:#667085;font-size:14px;margin-top:32px">Vayosmitham is a community geriatric oral health programme of Community Innovation Foundation with the Association of Geriatric Dentistry (AGeD). Opinions are advisory screening opinions, not a diagnosis or prescription.</p>
 </body></html>`;
